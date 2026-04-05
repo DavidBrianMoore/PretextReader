@@ -309,6 +309,11 @@ html, body {
   -webkit-user-select: text;
   /* Hardware backup for Speechify scroll: ensure 72px gap from top */
   scroll-margin-top: 72px;
+  /* NO CLIP: Ensure long words wrap instead of bleeding or being clipped */
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
 }
 
 /* Reading area: always selectable text cursor */
