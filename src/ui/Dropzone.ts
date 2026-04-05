@@ -66,7 +66,31 @@ export class Dropzone {
           <span class="feature-icon">🔤</span>
           <span>Mixed font support</span>
         </div>
+      </div>
+
+      <div class="dropzone-url-group">
+        <input type="text" id="dropzone-url-input" placeholder="Paste a book URL..." class="dropzone-url-input" aria-label="Book URL" />
+        <button id="dropzone-url-btn" class="dropzone-url-btn">Open URL</button>
+      </div>
     `;
+
+    // URL input
+    const urlInput = wrap.querySelector<HTMLInputElement>('#dropzone-url-input')!;
+    const urlBtn = wrap.querySelector<HTMLButtonElement>('#dropzone-url-btn')!;
+
+    const handleUrlSubmit = () => {
+      const url = urlInput.value.trim();
+      if (url && this.callbacks.onUrl) {
+        this.callbacks.onUrl(url);
+      } else if (!url) {
+        this._showError('Please enter a URL');
+      }
+    };
+
+    urlBtn.addEventListener('click', handleUrlSubmit);
+    urlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleUrlSubmit();
+    });
 
     // File input
     const input = wrap.querySelector<HTMLInputElement>('#book-file-input')!;

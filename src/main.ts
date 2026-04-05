@@ -35,6 +35,7 @@ function showDropzone(): void {
   if (!dropzone) {
     dropzone = new Dropzone(appRoot, {
       onFile: handleFile,
+      onUrl: handleUrl,
     });
   }
 }
@@ -65,6 +66,53 @@ async function handleFile(file: File): Promise<void> {
   }
 }
 
+async function handleUrl(url: string): Promise<void> {
+  if (!dropzone) return;
+  
+  // Extract filename or fallback
+  const filename = url.split('/').pop()?.split('?')[0] || 'Remote Book';
+  dropzone.showLoading(filename);
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Remote server returned ${response.status} ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    
+    // Fallback MIME type detection
+    let type = blob.type;
+    const lowerUrl = url.toLowerCase();
+    if (!type || type === 'application/octet-stream') {
+        if (lowerUrl.endsWith('.epub')) type = 'application/epub+zip';
+        else if (lowerUrl.endsWith('.pdf')) type = 'application/pdf';
+        else if (lowerUrl.endsWith('.docx')) type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    }
+
+    const file = new File([blob], filename, { type });
+    await handleFile(file);
+  } catch (err) {
+    console.error('Failed to fetch from URL:', err);
+    dropzone?.destroy();
+    dropzone = null;
+    showDropzone();
+    
+    setTimeout(() => {
+      const isCors = err instanceof TypeError && (err.message.includes('fetch') || err.message.includes('NetworkError'));
+      const msg = isCors
+        ? 'CORS Error: The remote server at this URL does not allow cross-origin requests.'
+        : `Failed to open: ${(err as Error).message || 'Unknown error'}`;
+        
+      const errEl = document.createElement('div');
+      errEl.className = 'parse-error';
+      errEl.textContent = msg;
+      appRoot.prepend(errEl);
+      setTimeout(() => errEl.remove(), 6000);
+    }, 100);
+  }
+}
+
 function openBook(book: Book): void {
   document.title = `${book.metadata.title} — Pretext Reader`;
   
@@ -82,5 +130,13 @@ function openBook(book: Book): void {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-showDropzone();
+const params = new URLSearchParams(window.location.search);
+const urlParam = params.get('url');
+
+if (urlParam) {
+  showDropzone(); // Create it so handleUrl can update it
+  handleUrl(urlParam);
+} else {
+  showDropzone();
+}
 
