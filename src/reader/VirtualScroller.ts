@@ -121,7 +121,7 @@ export class VirtualScroller {
 
     this.columnWidth = this._measureColumnWidth();
 
-    let y = 0;
+    let y = 72;
     for (const block of blocks) {
       const height = predictBlockHeight(block, this.columnWidth, this.settings);
       this.entries.push({ block, top: y, height, el: null });
@@ -399,7 +399,7 @@ export class VirtualScroller {
   }
 
   private _recalculateHeights(): void {
-    let y = 0;
+    let y = 72;
     for (const entry of this.entries) {
       entry.top = y;
       entry.height = predictBlockHeight(entry.block, this.columnWidth, this.settings);
