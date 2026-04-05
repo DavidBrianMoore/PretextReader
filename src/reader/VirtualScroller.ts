@@ -104,8 +104,10 @@ export class VirtualScroller {
   }
 
   private _measureColumnWidth(): number {
-    const gutter = this.container.clientWidth < 500 ? 32 : 64;
-    return Math.min(this.container.clientWidth - gutter, this.settings.columnWidth);
+    // Use documentElement.clientWidth for better cross-device mobile consistency
+    const vw = document.documentElement.clientWidth;
+    const gutter = vw < 500 ? 32 : 64;
+    return Math.min(vw - gutter, this.settings.columnWidth);
   }
 
   // ─── Public API ─────────────────────────────────────────────────────────────

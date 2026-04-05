@@ -24,6 +24,8 @@
 html, body {
   /* Allow natural scrolling for TTS extensions (Speechify, etc.) */
   min-height: 100%;
+  width: 100%;
+  overflow-x: hidden;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);
@@ -34,6 +36,7 @@ html, body {
 #app {
   min-height: 100%;
   width: 100%;
+  overflow-x: hidden;
   position: relative;
 }
 
