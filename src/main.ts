@@ -66,9 +66,13 @@ async function handleFile(file: File): Promise<void> {
   }
 }
 
-async function handleUrl(url: string): Promise<void> {
+async function handleUrl(url: string, redirectCount = 0): Promise<void> {
   if (!dropzone) return;
   
+  if (redirectCount > 3) {
+      throw new Error('Too many redirects');
+  }
+
   // Extract filename or fallback
   const filename = url.split('/').pop()?.split('?')[0] || 'Remote Book';
   dropzone.showLoading(filename);
@@ -79,15 +83,39 @@ async function handleUrl(url: string): Promise<void> {
         throw new Error(`Remote server returned ${response.status} ${response.statusText}`);
     }
 
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('text/html')) {
+        const html = await response.text();
+        // Check for meta tags that trigger a download (Standard Ebooks pattern)
+        const refreshMatch = html.match(/<meta http-equiv=["']?refresh["']?.*?url=['"]?([^'"]+)['"]?/i);
+        if (refreshMatch) {
+            const nextUrl = new URL(refreshMatch[1].replace(/&amp;/g, '&'), url).toString();
+            console.log('Following redirect to:', nextUrl);
+            return handleUrl(nextUrl, redirectCount + 1);
+        }
+        
+        // Check for common download links in the page if refresh is missing
+        if (html.includes('.epub') || html.includes('.pdf')) {
+            const linkMatch = html.match(/href=['"]?([^'"]+\.(epub|pdf|docx)(\?source=download)?)['"]?/i);
+            if (linkMatch) {
+                const nextUrl = new URL(linkMatch[1].replace(/&amp;/g, '&'), url).toString();
+                console.log('Found potential book link in HTML:', nextUrl);
+                return handleUrl(nextUrl, redirectCount + 1);
+            }
+        }
+
+        throw new Error('This URL points to a web page, not a direct book file.');
+    }
+
     const blob = await response.blob();
     
     // Fallback MIME type detection
     let type = blob.type;
     const lowerUrl = url.toLowerCase();
     if (!type || type === 'application/octet-stream') {
-        if (lowerUrl.endsWith('.epub')) type = 'application/epub+zip';
-        else if (lowerUrl.endsWith('.pdf')) type = 'application/pdf';
-        else if (lowerUrl.endsWith('.docx')) type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        if (lowerUrl.endsWith('.epub') || lowerUrl.includes('.epub?')) type = 'application/epub+zip';
+        else if (lowerUrl.endsWith('.pdf') || lowerUrl.includes('.pdf?')) type = 'application/pdf';
+        else if (lowerUrl.endsWith('.docx') || lowerUrl.includes('.docx?')) type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     }
 
     const file = new File([blob], filename, { type });
