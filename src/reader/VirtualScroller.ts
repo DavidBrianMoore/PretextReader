@@ -106,7 +106,7 @@ export class VirtualScroller {
   private _measureColumnWidth(): number {
     // Use documentElement.clientWidth for better cross-device mobile consistency
     const vw = document.documentElement.clientWidth;
-    const gutter = vw < 500 ? 32 : 64;
+    const gutter = vw < 500 ? 36 : 64;
     return Math.min(vw - gutter, this.settings.columnWidth);
   }
 
