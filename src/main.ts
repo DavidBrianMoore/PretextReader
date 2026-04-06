@@ -205,7 +205,7 @@ init();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // FIXED: Use pkg.version for stable registration without loops.
+    // SLEDGEHAMMER: Use a unique build signature to break through the 1.0.22 memory.
     navigator.serviceWorker.register(`/sw.js?v=${pkg.version}`, { scope: '/' });
   });
 
