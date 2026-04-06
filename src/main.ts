@@ -14,12 +14,8 @@ import type { SavedBook } from './db/LibraryStore';
 // ─── State ────────────────────────────────────────────────────────────────────
 
 const footer = document.createElement('footer');
-footer.innerHTML = `
-    <div class="version-pill">
-      <span class="version-tag">Prerelease v${pkg.version}</span>
-      <button id="update-check-btn" class="update-btn">Check for Update</button>
-    </div>
-`;
+footer.id = 'app-footer';
+footer.innerHTML = `<span class="version-tag">v${pkg.version}</span>`;
 document.body.appendChild(footer);
 
 let currentReader: ReaderView | null = null;
@@ -44,6 +40,7 @@ applyFont(DEFAULT_SETTINGS.font, DEFAULT_SETTINGS.fontSize, DEFAULT_SETTINGS.lin
 // ─── Views ────────────────────────────────────────────────────────────────────
 
 async function showLibrary(): Promise<void> {
+  if ((window as any).requestSwUpdate) (window as any).requestSwUpdate();
   currentReader?.destroy();
   currentReader = null;
   dropzone?.destroy();
@@ -266,23 +263,17 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').then(reg => {
       console.log('SW registered');
       
-      const updateBtn = document.getElementById('update-check-btn') as HTMLButtonElement;
-      updateBtn?.addEventListener('click', () => {
-          updateBtn.innerText = 'Checking...';
-          reg.update().then(() => {
-              setTimeout(() => {
-                  if (updateBtn.innerText === 'Checking...') {
-                      updateBtn.innerText = 'Up to Date';
-                      setTimeout(() => updateBtn.innerText = 'Check for Update', 2000);
-                  }
-              }, 800);
-          });
+      // Smart Session Checks: Check for updates on tab focus or navigations
+      const checkUpdate = () => reg.update();
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') checkUpdate();
       });
 
-      // Check for updates every 5 minutes while active
-      setInterval(() => {
-        reg.update();
-      }, 5 * 60 * 1000);
+      // Regular checks every few minutes
+      setInterval(checkUpdate, 5 * 60 * 1000);
+      
+      // Also check whenever we return to the library
+      (window as any).requestSwUpdate = checkUpdate;
     }).catch(err => {
       console.log('SW registration failed: ', err);
     });
