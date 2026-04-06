@@ -150,8 +150,8 @@ async function handleUrl(url: string, redirectCount = 0): Promise<void> {
         response = await fetch(url);
     } catch (fetchErr) {
         // Initial fetch failed, try proxy with encoded URL
-        console.warn('Initial fetch failed, trying CORS proxy...', fetchErr);
-        const proxiedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        console.warn('Initial fetch failed, trying reliable CORS proxy...', fetchErr);
+        const proxiedUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`;
         response = await fetch(proxiedUrl);
     }
 
