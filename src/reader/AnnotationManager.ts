@@ -144,6 +144,7 @@ export class AnnotationManager {
           const id = annoMark.getAttribute('data-anno-id')!;
           const start = parseInt(annoMark.getAttribute('data-start') || '0');
           const end = parseInt(annoMark.getAttribute('data-end') || '0');
+          const noteText = annoMark.getAttribute('data-note') || '';
           const blockId = target.closest('.vscroll-block')?.getAttribute('data-block-id');
           if (blockId) {
             this.currentSelection = {
@@ -155,6 +156,7 @@ export class AnnotationManager {
             };
             this.popover.querySelector('#anno-delete')?.classList.remove('hidden');
             this._showPopover(annoMark.getBoundingClientRect());
+            this._showNoteInput(noteText);
           }
           return;
       }
@@ -202,13 +204,16 @@ export class AnnotationManager {
     this._hidePopover();
   }
 
-  private _showNoteInput(): void {
-    this.popover.querySelector('.anno-actions')?.classList.add('hidden');
+  private _showNoteInput(val = ''): void {
     const inputArea = this.popover.querySelector('.anno-note-input')!;
     inputArea.classList.remove('hidden');
+    this.popover.querySelector('.anno-actions')?.classList.add('hidden');
     const input = inputArea.querySelector('input')!;
-    input.value = '';
-    setTimeout(() => input.focus(), 10);
+    input.value = val;
+    setTimeout(() => {
+        input.focus();
+        if (val) input.select();
+    }, 10);
   }
 
   private _hidePopover(): void {
