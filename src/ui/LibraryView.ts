@@ -5,6 +5,7 @@ import { EditBookModal } from './EditBookModal';
 interface LibraryCallbacks {
   onSelectBook: (book: SavedBook) => void;
   onUploadNew: () => void;
+  onOpenBrowse: () => void;
 }
 
 export class LibraryView {
@@ -41,12 +42,19 @@ export class LibraryView {
     this.headerEl.innerHTML = `
       <div class="header-content">
         <h2 style="font-family: var(--font-body); font-weight: 700; font-size: 1.4rem;">Pretext</h2>
-        <button class="library-upload-btn" id="header-upload-btn">
-          <span>+ Import</span>
-        </button>
+        <div class="header-actions">
+           <button class="library-browse-btn" id="header-browse-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span>Browse Online</span>
+          </button>
+          <button class="library-upload-btn" id="header-upload-btn">
+            <span>+ Import</span>
+          </button>
+        </div>
       </div>
     `;
     this.headerEl.querySelector('#header-upload-btn')?.addEventListener('click', () => this.callbacks.onUploadNew());
+    this.headerEl.querySelector('#header-browse-btn')?.addEventListener('click', () => this.callbacks.onOpenBrowse());
 
     // Render Main Content
     this.el.innerHTML = '';

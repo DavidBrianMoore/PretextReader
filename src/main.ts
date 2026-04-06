@@ -4,6 +4,7 @@ import { parsePdf } from './pdf/pdfParser';
 import { parseDocx } from './docx/docxParser';
 import { ReaderView } from './reader/ReaderView';
 import { LibraryView } from './ui/LibraryView';
+import { BrowseView } from './ui/BrowseView';
 import { libraryStore } from './db/LibraryStore';
 import { SyncManager } from './reader/Sync';
 import type { Book } from './epub/types';
@@ -35,6 +36,7 @@ document.body.appendChild(fab);
 let currentReader: ReaderView | null = null;
 let importModal: Dropzone | null = null;
 let libraryView: LibraryView | null = null;
+let browseView: BrowseView | null = null;
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
 
@@ -50,6 +52,8 @@ async function showLibrary(isPopState = false): Promise<void> {
   currentReader = null;
   importModal?.destroy();
   importModal = null;
+  browseView?.destroy();
+  browseView = null;
 
   footer.style.display = 'block';
   fab.style.display = 'flex';
@@ -59,10 +63,37 @@ async function showLibrary(isPopState = false): Promise<void> {
     libraryView = new LibraryView(appRoot, {
       onSelectBook: (book) => openBook(book.id),
       onUploadNew: () => showImportModal(),
+      onOpenBrowse: () => showBrowse(),
     });
   } else {
     libraryView.render();
   }
+}
+
+async function showBrowse(isPopState = false): Promise<void> {
+  if (!isPopState) {
+    history.pushState({ view: 'browse' }, '', window.location.pathname);
+  }
+
+  // Cleanup
+  currentReader?.destroy();
+  currentReader = null;
+  importModal?.destroy();
+  importModal = null;
+  libraryView?.destroy();
+  libraryView = null;
+
+  footer.style.display = 'none';
+  fab.style.display = 'none';
+  document.title = 'Browse Online — Pretext';
+
+  browseView = new BrowseView(appRoot, {
+    onBack: () => showLibrary(),
+    onImportUrl: (url) => {
+      showImportModal();
+      handleUrl(url);
+    }
+  });
 }
 
 async function showImportModal(): Promise<void> {
@@ -211,6 +242,8 @@ window.addEventListener('popstate', (e) => {
         showLibrary(true);
     } else if (state.view === 'reader' && state.bookId) {
         openBook(state.bookId, true);
+    } else if (state.view === 'browse') {
+        showBrowse(true);
     }
 });
 
@@ -262,6 +295,9 @@ async function init() {
     } else {
         await showLibrary(true);
     }
+    
+    // Silence unused warning for now as it's modified in showBrowse
+    console.debug('BrowseView instance:', browseView);
 }
 
 init();
