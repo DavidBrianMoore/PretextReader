@@ -142,13 +142,15 @@ export class AnnotationManager {
           e.preventDefault();
           e.stopPropagation();
           const id = annoMark.getAttribute('data-anno-id')!;
+          const start = parseInt(annoMark.getAttribute('data-start') || '0');
+          const end = parseInt(annoMark.getAttribute('data-end') || '0');
           const blockId = target.closest('.vscroll-block')?.getAttribute('data-block-id');
           if (blockId) {
             this.currentSelection = {
               blockId,
               text: annoMark.innerText,
-              startOffset: 0,
-              endOffset: 0,
+              startOffset: start,
+              endOffset: end,
               existingId: id
             };
             this.popover.querySelector('#anno-delete')?.classList.remove('hidden');
