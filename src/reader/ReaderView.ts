@@ -76,7 +76,7 @@ export class ReaderView {
     this.chatSidebar = new ChatSidebar();
 
     this.noteEditor = new NoteEditor({
-      onSave: (content) => this._saveNote(content),
+      onSave: () => {},
       onCancel: () => {},
     });
 
@@ -235,8 +235,16 @@ export class ReaderView {
 
   private async _openNoteEditor(): Promise<void> {
     if (!this._activeBlockId) return;
+    const bid = this._activeBlockId; // Capture the ID locally
+    
+    // We update NoteEditor.onSave to use this specific blockId
+    this.noteEditor = new NoteEditor({
+      onSave: (content) => this._saveNoteSpecific(bid, content),
+      onCancel: () => {},
+    });
+
     const saved = await libraryStore.getBook(this.bookId);
-    const note = saved?.annotations?.find(a => a.blockId === this._activeBlockId && a.type === 'note');
+    const note = saved?.annotations?.find(a => a.blockId === bid && a.type === 'note');
     this.noteEditor.show(note?.note || '');
   }
 
@@ -285,10 +293,7 @@ export class ReaderView {
     SyncManager.pushProgress(this.bookId);
   }
 
-  private async _saveNote(content: string): Promise<void> {
-    if (!this._activeBlockId) return;
-    const bid = this._activeBlockId;
-    
+  private async _saveNoteSpecific(bid: string, content: string): Promise<void> {
     const saved = await libraryStore.getBook(this.bookId);
     const existing = saved?.annotations?.find(a => a.blockId === bid && a.type === 'note');
 
