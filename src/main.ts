@@ -14,8 +14,12 @@ import type { SavedBook } from './db/LibraryStore';
 // ─── State ────────────────────────────────────────────────────────────────────
 
 const footer = document.createElement('footer');
-footer.id = 'app-footer';
-footer.innerHTML = `<span class="version-tag">Prerelease v${pkg.version}</span>`;
+footer.innerHTML = `
+    <div class="version-pill">
+      <span class="version-tag">Prerelease v${pkg.version}</span>
+      <button id="update-check-btn" class="update-btn">Check for Update</button>
+    </div>
+`;
 document.body.appendChild(footer);
 
 let currentReader: ReaderView | null = null;
@@ -261,6 +265,20 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').then(reg => {
       console.log('SW registered');
+      
+      const updateBtn = document.getElementById('update-check-btn') as HTMLButtonElement;
+      updateBtn?.addEventListener('click', () => {
+          updateBtn.innerText = 'Checking...';
+          reg.update().then(() => {
+              setTimeout(() => {
+                  if (updateBtn.innerText === 'Checking...') {
+                      updateBtn.innerText = 'Up to Date';
+                      setTimeout(() => updateBtn.innerText = 'Check for Update', 2000);
+                  }
+              }, 800);
+          });
+      });
+
       // Check for updates every 5 minutes while active
       setInterval(() => {
         reg.update();
