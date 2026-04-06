@@ -87,13 +87,16 @@ async function showBrowse(isPopState = false): Promise<void> {
   fab.style.display = 'none';
   document.title = 'Browse Online — Pretext';
 
+  const books = await libraryStore.getAllBooks();
+
   browseView = new BrowseView(appRoot, {
     onBack: () => showLibrary(),
-    onImportUrl: (url) => {
+    onImportUrl: (url, openAfter) => {
       showImportModal();
-      handleUrl(url);
-    }
-  });
+      handleUrl(url, 0, openAfter);
+    },
+    onOpenBook: (id) => openBook(id)
+  }, books);
 }
 
 async function showImportModal(): Promise<void> {
@@ -106,7 +109,7 @@ async function showImportModal(): Promise<void> {
   });
 }
 
-async function handleFile(file: File): Promise<void> {
+async function handleFile(file: File, openAfterImport = true): Promise<void> {
   if (!importModal) return;
   importModal.showLoading(file.name);
 
@@ -120,7 +123,23 @@ async function handleFile(file: File): Promise<void> {
     
     importModal?.destroy();
     importModal = null;
-    openBook(id);
+    
+    if (openAfterImport) {
+        openBook(id);
+    } else {
+        const successEl = document.createElement('div');
+        successEl.className = 'parse-error';
+        successEl.style.backgroundColor = 'rgba(76, 175, 80, 0.9)';
+        successEl.textContent = `Imported: ${book.metadata.title}`;
+        appRoot.prepend(successEl);
+        setTimeout(() => successEl.remove(), 3000);
+        
+        // Let the browse view update its buttons if it's open
+        if (browseView) {
+            const books = await libraryStore.getAllBooks();
+            browseView.updateBooks(books);
+        }
+    }
   } catch (err) {
     console.error('Failed to parse book:', err);
     importModal?.destroy();
@@ -136,7 +155,7 @@ async function handleFile(file: File): Promise<void> {
   }
 }
 
-async function handleUrl(url: string, redirectCount = 0): Promise<void> {
+async function handleUrl(url: string, redirectCount = 0, openAfterImport = true): Promise<void> {
   if (!importModal) return;
   
   if (redirectCount > 3) throw new Error('Too many redirects');
@@ -159,7 +178,7 @@ async function handleUrl(url: string, redirectCount = 0): Promise<void> {
         // If 400 or other error, try a "clean" URL (no fragment/query if possible)
         if (response.status === 400 && url.includes('?')) {
             const cleanUrl = url.split('?')[0];
-            return handleUrl(cleanUrl, redirectCount + 1);
+            return handleUrl(cleanUrl, redirectCount + 1, openAfterImport);
         }
         throw new Error(`Remote server returned ${response.status}`);
     }
@@ -170,7 +189,7 @@ async function handleUrl(url: string, redirectCount = 0): Promise<void> {
         const refreshMatch = html.match(/<meta http-equiv=["']?refresh["']?.*?url=['"]?([^'"]+)['"]?/i);
         if (refreshMatch) {
             const nextUrl = new URL(refreshMatch[1].replace(/&amp;/g, '&'), url).toString();
-            return handleUrl(nextUrl, redirectCount + 1);
+            return handleUrl(nextUrl, redirectCount + 1, openAfterImport);
         }
         throw new Error('URL points to a web page, not a direct book file.');
     }
@@ -185,7 +204,7 @@ async function handleUrl(url: string, redirectCount = 0): Promise<void> {
     }
 
     const file = new File([blob], filename, { type });
-    await handleFile(file);
+    await handleFile(file, openAfterImport);
   } catch (err) {
     console.error('Failed to fetch from URL:', err);
     importModal?.destroy();
