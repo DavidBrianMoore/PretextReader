@@ -106,7 +106,8 @@ export class VirtualScroller {
   private _measureColumnWidth(): number {
     // Use documentElement.clientWidth for better cross-device mobile consistency
     const vw = document.documentElement.clientWidth;
-    const gutter = vw < 500 ? 36 : 64;
+    // Tighter gutters on modern mobile (iPhone 16 Pro Max centered layout fix)
+    const gutter = vw < 500 ? 56 : (vw < 700 ? 48 : 64);
     return Math.min(vw - gutter, this.settings.columnWidth);
   }
 
@@ -131,6 +132,10 @@ export class VirtualScroller {
     this.spacer.style.height = `${y}px`;
     // Sync body height so window scroll works
     document.body.style.minHeight = `${y}px`;
+    
+    // Ensure perfect horizontal centering on first load
+    window.scrollTo({ left: 0, top: 0, behavior: 'instant' as any });
+    
     this._render();
   }
 
