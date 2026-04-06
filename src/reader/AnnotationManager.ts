@@ -9,7 +9,7 @@ export class AnnotationManager {
   private container: HTMLElement;
   private callbacks: AnnotationCallbacks;
   private popover: HTMLElement;
-  private currentSelection: { blockId: string; text: string; startOffset: number; endOffset: number } | null = null;
+  private currentSelection: { blockId: string; text: string; startOffset: number; endOffset: number; existingId?: string } | null = null;
 
   constructor(container: HTMLElement, callbacks: AnnotationCallbacks) {
     this.container = container;
@@ -68,12 +68,22 @@ export class AnnotationManager {
       this._handleDelete();
     });
 
+    el.querySelector('#anno-save-note')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this._handleAction('note');
+    });
+
     el.querySelector('#anno-note-text')?.addEventListener('keydown', (e) => {
+        e.stopPropagation();
         if ((e as KeyboardEvent).key === 'Enter') {
           e.preventDefault();
           this._handleAction('note');
         }
-        if ((e as KeyboardEvent).key === 'Escape') this._hidePopover();
+        if ((e as KeyboardEvent).key === 'Escape') {
+          e.preventDefault();
+          this._hidePopover();
+        }
     });
 
     return el;
@@ -137,10 +147,10 @@ export class AnnotationManager {
             this.currentSelection = {
               blockId,
               text: annoMark.innerText,
-              startOffset: 0, // Not strictly needed for delete
+              startOffset: 0,
               endOffset: 0,
               existingId: id
-            } as any;
+            };
             this.popover.querySelector('#anno-delete')?.classList.remove('hidden');
             this._showPopover(annoMark.getBoundingClientRect());
           }
@@ -161,10 +171,9 @@ export class AnnotationManager {
   private _handleAction(type: 'highlight' | 'note', color?: string): void {
     if (!this.currentSelection) return;
     
-    const sel = this.currentSelection as any;
+    const sel = this.currentSelection;
     const noteVal = (this.popover.querySelector('#anno-note-text') as HTMLInputElement).value;
 
-    // If editing existing, delete old one first
     if (sel.existingId) {
         this.callbacks.onDelete(sel.existingId);
     }
@@ -184,7 +193,7 @@ export class AnnotationManager {
   }
 
   private _handleDelete(): void {
-    const sel = this.currentSelection as any;
+    const sel = this.currentSelection;
     if (sel?.existingId) {
         this.callbacks.onDelete(sel.existingId);
     }

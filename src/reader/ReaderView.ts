@@ -117,6 +117,9 @@ export class ReaderView {
   }
 
   private _onKeyDown = (e: KeyboardEvent): void => {
+    // Ignore reader shortcuts if user is typing in an input
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
     if (e.key === 'Escape') this._close();
     if (e.key === 't' || e.key === 'T') this.toc.toggle();
     if (e.key === 'f' || e.key === 'F') {
