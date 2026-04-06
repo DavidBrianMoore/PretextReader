@@ -90,6 +90,10 @@ export class AnnotationManager {
   }
 
   private _onSelectionChange = (): void => {
+    if (document.activeElement && this.popover.contains(document.activeElement)) {
+        return; // Ignore selection changes while typing in our input
+    }
+    
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
       if (this.currentSelection) this._hidePopover();
