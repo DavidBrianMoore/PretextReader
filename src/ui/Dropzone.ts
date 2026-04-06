@@ -1,14 +1,20 @@
+import type { SavedBook } from '../db/LibraryStore';
+
 export interface DropzoneCallbacks {
   onFile: (file: File) => void;
   onUrl?: (url: string) => void;
+  onOpenSavedBook: (id: string) => void;
+  onDeleteSavedBook: (id: string) => void;
 }
 
 export class Dropzone {
   private el: HTMLElement;
   private callbacks: DropzoneCallbacks;
+  private savedBooks: SavedBook[];
 
-  constructor(container: HTMLElement, callbacks: DropzoneCallbacks) {
+  constructor(container: HTMLElement, callbacks: DropzoneCallbacks, savedBooks: SavedBook[] = []) {
     this.callbacks = callbacks;
+    this.savedBooks = savedBooks;
     this.el = this._build();
     container.appendChild(this.el);
   }
@@ -49,6 +55,30 @@ export class Dropzone {
           </label>
         </div>
       </div>
+
+      ${this.savedBooks.length > 0 ? `
+        <div class="library-section">
+          <h2 class="library-title">Recently Read</h2>
+          <div class="library-grid">
+            ${this.savedBooks.map(book => `
+              <div class="library-card" data-id="${book.id}">
+                <div class="library-card-content">
+                  <div class="library-card-badge">${(book.sourceType || 'EPUB').toUpperCase()}</div>
+                  <h3 class="library-card-title">${book.metadata.title}</h3>
+                  <p class="library-card-author">${book.metadata.author || 'Unknown Author'}</p>
+                </div>
+                <button class="library-card-delete" title="Remove from Library">&times;</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="dropzone-url-group">
+        <input type="text" id="dropzone-url-input" placeholder="Paste a book URL..." class="dropzone-url-input" aria-label="Book URL" />
+        <button id="dropzone-url-btn" class="dropzone-url-btn">Open URL</button>
+      </div>
+
       <div class="dropzone-features">
         <div class="dropzone-feature">
           <span class="feature-icon">📚</span>
@@ -67,12 +97,26 @@ export class Dropzone {
           <span>Mixed font support</span>
         </div>
       </div>
-
-      <div class="dropzone-url-group">
-        <input type="text" id="dropzone-url-input" placeholder="Paste a book URL..." class="dropzone-url-input" aria-label="Book URL" />
-        <button id="dropzone-url-btn" class="dropzone-url-btn">Open URL</button>
-      </div>
     `;
+
+    // Library interactions
+    wrap.querySelectorAll('.library-card').forEach(card => {
+      const id = card.getAttribute('data-id')!;
+      
+      // Open book on main click
+      card.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('.library-card-delete')) return;
+        this.callbacks.onOpenSavedBook(id);
+      });
+
+      // Delete book
+      card.querySelector('.library-card-delete')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.callbacks.onDeleteSavedBook(id);
+        card.classList.add('removing');
+        setTimeout(() => card.remove(), 300);
+      });
+    });
 
     // URL input
     const urlInput = wrap.querySelector<HTMLInputElement>('#dropzone-url-input')!;

@@ -13,23 +13,12 @@ interface BlockEntry {
 }
 
 type OnChapterEnd = () => void;
+type OnBlockAction = (blockId: string, x: number, y: number) => void;
 
 // ─── VirtualScroller ──────────────────────────────────────────────────────────
 
 /**
  * High-performance virtual scroller backed by pretext height prediction.
- *
- * Strategy:
- *  - Maintain a flat list of BlockEntry across all chapters.
- *  - Heights are predicted via pretext layout() (no DOM).
- *  - Only blocks intersecting [scrollTop - buffer, scrollTop + vh + buffer]
- *    get real DOM elements.
- *  - On font/width change: clear cache, recalculate all heights, reposition.
- *
- * TTS / Speechify support:
- *  - buffer = 3× viewport so TTS always has text ahead in the DOM.
- *  - selectionchange listener scrolls our container when TTS advances a word.
- *  - Blocks containing an active selection are never virtualized away.
  */
 export class VirtualScroller {
   private container: HTMLElement;
@@ -42,22 +31,23 @@ export class VirtualScroller {
   private scrollTop: number = 0;
   private annotations: Annotation[] = [];
   private buffer = 800; // will be updated to 3× viewport on first layout
-  private ttsBuffer = 3; // multiplier: keep 3× viewport rendered above/below
+  private ttsBuffer = 3; // multiplier: keep 3× viewport rendered
   private renderedRange: [number, number] = [-1, -1]; // [startIdx, endIdx]
   private resizeObserver: ResizeObserver;
   private onChapterEnd?: OnChapterEnd;
-  private lastChapterIndex = -1;
+  private onBlockAction?: OnBlockAction;
   private _onWindowScroll: () => void = () => {};
- 
+  
   // TTS scroll — throttle so we don't conflict with normal scroll events
   private _ttsScrollRaf: number | null = null;
   // Last known absolute scroll position of the TTS reading cursor.
   private _lastTtsScrollTop: number = -1;
 
-  constructor(container: HTMLElement, settings: ReaderSettings, onChapterEnd?: OnChapterEnd) {
+  constructor(container: HTMLElement, settings: ReaderSettings, onChapterEnd?: OnChapterEnd, onBlockAction?: OnBlockAction) {
     this.container = container;
     this.settings = settings;
     this.onChapterEnd = onChapterEnd;
+    this.onBlockAction = onBlockAction;
     this.pool = [];
 
     // Spacer to give scroll room
@@ -73,22 +63,17 @@ export class VirtualScroller {
     this.container.classList.add('speechify-read');
     this.container.setAttribute('tabindex', '0');
 
-    // Scroll listener: use the window so TTS software can 'see' the scroll as native
+    // Scroll listener
     this._onWindowScroll = this._onScroll.bind(this);
     window.addEventListener('scroll', this._onWindowScroll, { passive: true });
 
-    // TTS Compatibility: Intercept scrollIntoView calls
-    // Speechify calls .scrollIntoView() on words/blocks. Since we are in a 
-    // virtual container, we must redirect these calls to our logic.
     this._patchPrototypeScroll();
 
-    // TTS auto-scroll: track selection changes (Speechify highlights via Selection API)
+    // TTS auto-scroll
     document.addEventListener('selectionchange', this._onSelectionChange);
-    // Speechify mini-bubble click: jump back to reading position when user
-    // clicks anything outside the reading area while TTS is active.
     document.addEventListener('click', this._onDocumentClick, { capture: true });
 
-    // Double-click to select block (hint for Speechify)
+    // Double-click to select block / open action menu
     this.container.addEventListener('dblclick', this._onDblClick);
 
     // Resize
@@ -100,15 +85,12 @@ export class VirtualScroller {
     this._updateBuffer();
   }
 
-  /** Keep 3× viewport rendered so TTS software always has text in the DOM */
   private _updateBuffer(): void {
     this.buffer = Math.max(800, this.viewportHeight * this.ttsBuffer);
   }
 
   private _measureColumnWidth(): number {
-    // Take the smaller of clientWidth and innerWidth to be extra safe against overflow
     const vw = Math.min(document.documentElement.clientWidth, window.innerWidth);
-    // Tighter gutters on modern mobile (iPhone 16 Pro Max centered layout fix)
     const gutter = vw < 500 ? 56 : (vw < 700 ? 48 : 64);
     return Math.min(vw - gutter, this.settings.columnWidth);
   }
@@ -132,12 +114,9 @@ export class VirtualScroller {
     }
 
     this.spacer.style.height = `${y}px`;
-    // Sync body height so window scroll works
     document.body.style.minHeight = `${y}px`;
     
-    // DELAYED RENDER: Ensure browser has finalized its mobile layout scaling
     requestAnimationFrame(() => {
-      // Ensure perfect horizontal centering on first load
       window.scrollTo({ left: 0, top: 0, behavior: 'instant' as any });
       this._render();
     });
@@ -153,6 +132,7 @@ export class VirtualScroller {
         if (entry.el) {
             const blockAnnots = this.annotations.filter(a => a.blockId === entry.block.id);
             renderBlock(entry.block, entry.el, this.columnWidth, this.settings, blockAnnots);
+            this._updateMarkers(i);
         }
     }
   }
@@ -181,15 +161,11 @@ export class VirtualScroller {
         behavior: 'smooth'
       });
       this.scrollTop = window.scrollY;
-      this._render(); // Force mount
+      this._render();
     }
     return idx;
   }
 
-  /**
-   * Selection API Workaround: programmatically selects the text of a block.
-   * This signals the Speechify extension to start reading from here.
-   */
   selectBlock(blockId: string): void {
     const idx = this.scrollToBlock(blockId);
     if (idx < 0) return;
@@ -197,36 +173,17 @@ export class VirtualScroller {
     const entry = this.entries[idx];
     if (!entry.el) return;
 
-    // Browser Selection API
     const selection = window.getSelection();
     if (!selection) return;
 
     const range = document.createRange();
-    // Use the inner paragraph/heading element if possible for cleaner selection
     const targetEl = entry.el.querySelector('p, h1, h2, h3, h4, h5, h6, blockquote, pre') || entry.el;
     
     range.selectNodeContents(targetEl);
     selection.removeAllRanges();
     selection.addRange(range);
 
-    // Recording this as the "last TTS scroll top" so our auto-scroll logic knows
-    // where the user manually redirected the "cursor".
     this._lastTtsScrollTop = entry.top;
-  }
-
-  scrollToChapter(_chapterIndex: number, blocks: ContentBlock[]): void {
-    const chapterId = blocks[0]?.id.split('-b')[0];
-    if (!chapterId) return;
-    const idx = this.entries.findIndex(e => e.block.id.startsWith(chapterId));
-    if (idx >= 0) {
-      const offset = window.innerHeight / 3;
-      window.scrollTo({
-        top: Math.max(0, this.entries[idx].top - offset),
-        behavior: 'smooth'
-      });
-      this.scrollTop = window.scrollY;
-      this._render();
-    }
   }
 
   destroy(): void {
@@ -254,7 +211,6 @@ export class VirtualScroller {
           const blockAbsTop = parseFloat(vblock.style.top) || 0;
           const blockRect = vblock.getBoundingClientRect();
           const elRect = this.getBoundingClientRect();
-          // elOffset is the vertical distance from the word to its block top.
           const elOffset = elRect.top - blockRect.top;
           
           scroller._scrollToComfortZone(blockAbsTop + elOffset);
@@ -271,18 +227,8 @@ export class VirtualScroller {
     }
   }
 
-  /**
-   * When Speechify (or any TTS) advances to the next word it creates or
-   * moves the browser Selection.  We pick that up here and:
-   *  1. Record the absolute scroll position of the current word in our
-   *     virtual scroll space (_lastTtsScrollTop) — stays valid even if the
-   *     block is later virtualized out of the DOM.
-   *  2. If the word is already off-screen, smooth-scroll to centre it.
-   *
-   * Throttled to one rAF so we never fight normal scroll events.
-   */
   private _onSelectionChange = (): void => {
-    if (this._ttsScrollRaf !== null) return; // already queued
+    if (this._ttsScrollRaf !== null) return;
 
     this._ttsScrollRaf = requestAnimationFrame(() => {
       this._ttsScrollRaf = null;
@@ -290,23 +236,13 @@ export class VirtualScroller {
       if (!selection || selection.rangeCount === 0) return;
 
       const range = selection.getRangeAt(0);
-
-      // Only react to selections inside our scroll container
       if (!this.container.contains(range.startContainer)) return;
 
-      // Resolve the element the selection sits in
       const node = range.startContainer;
-      const el: Element | null =
-        node.nodeType === Node.TEXT_NODE
-          ? node.parentElement
-          : (node as Element);
-
+      const el: Element | null = node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as Element);
       if (!el) return;
 
-      // ── Record absolute position ────────────────────────────────────────────
       const prevTtsScrollTop = this._lastTtsScrollTop;
-      // Walk up to the vscroll-block to get its absolute top in scroll-space,
-      // then add the element's offset within that block.
       const vblock = el.closest('.vscroll-block') as HTMLElement | null;
       if (vblock) {
         const blockAbsTop = parseFloat(vblock.style.top) || 0;
@@ -316,84 +252,59 @@ export class VirtualScroller {
         this._lastTtsScrollTop = blockAbsTop + elOffsetInBlock;
       }
 
-      if (prevTtsScrollTop === -1) return; // First word, handle normally
+      if (prevTtsScrollTop === -1) return;
 
-      // ── Scroll into view if needed ──────────────────────────────────────────
       const elRect = range.getBoundingClientRect();
       const cRect  = this.container.getBoundingClientRect();
- 
-      // Toolbar offset: we consider word 'hidden' if it's near/under the toolbar
       const topGuard    = cRect.top + 64;
       const bottomGuard = cRect.bottom - 140; 
- 
       const isHidden = elRect.bottom < topGuard || elRect.top > bottomGuard;
- 
-      const verticalPosThreshold = 8;
-      const verticalMoved = Math.abs(this._lastTtsScrollTop - prevTtsScrollTop) > verticalPosThreshold;
- 
+      const verticalMoved = Math.abs(this._lastTtsScrollTop - prevTtsScrollTop) > 8;
+
       if (isHidden || verticalMoved) {
         this._scrollToComfortZone(this._lastTtsScrollTop);
       }
     });
   };
 
-  /**
-   * Universal TTS scroll helper: puts a specific Y coordinate at the ~1/3 point
-   * of the screen for ideal reading comfort.
-   */
   private _scrollToComfortZone(absY: number): void {
     const targetScroll = Math.max(0, absY - window.innerHeight / 3);
-    // Ignore small changes to avoid jittery animations
     if (Math.abs(window.scrollY - targetScroll) < 10) return;
-
     window.scrollTo({ top: targetScroll, behavior: 'smooth' });
   }
 
-  /**
-   * Speechify's mini-bubble click handler.
-   *
-   * When reading is off-screen Speechify displays a floating word widget.
-   * Clicking it dispatches a click event outside our scroll container while
-   * _lastTtsScrollTop still holds the correct absolute position of the word
-   * in our virtual scroll space.  We jump there with smooth scroll.
-   */
   private _onDocumentClick = (e: MouseEvent): void => {
     const target = e.target as HTMLElement;
-
-    // ── Internal Link Handling ──────────────────────────────────────────────
     const internalLink = target.closest('[data-internal-link="true"]') as HTMLAnchorElement | null;
     if (internalLink) {
       e.preventDefault();
       const href = internalLink.getAttribute('href');
       if (href && href.startsWith('#')) {
-        const id = href.substring(1);
-        this.scrollToBlock(id);
+        this.scrollToBlock(href.substring(1));
       }
       return;
     }
 
-    // ── Speechify Mini-Bubble Handling ──────────────────────────────────────
     if (this.container.contains(e.target as Node)) return;
-    // ... rest of Speechify logic
     if (this._lastTtsScrollTop < 0) return;
-    
     this._scrollToComfortZone(this._lastTtsScrollTop);
   };
 
-  /**
-   * Handle double-clicks to programmatically select a block.
-   */
   private _onDblClick = (e: MouseEvent): void => {
     const target = e.target as HTMLElement;
     const vblock = target.closest('.vscroll-block') as HTMLElement | null;
     if (!vblock) return;
 
-    // Find which block it is
     const blockAbsTop = parseFloat(vblock.style.top) || 0;
     const entry = this.entries.find(ent => Math.abs(ent.top - blockAbsTop) < 1);
     
     if (entry) {
-      this.selectBlock(entry.block.id);
+      if (this.onBlockAction) {
+        // Use clientX/Y for menu positioning
+        this.onBlockAction(entry.block.id, e.clientX, e.clientY);
+      } else {
+        this.selectBlock(entry.block.id);
+      }
     }
   };
 
@@ -407,10 +318,7 @@ export class VirtualScroller {
 
   private _onResize(): void {
     const newH = window.innerHeight;
-    
-    // Always measure based on container width AND settings limit
     const calculatedWidth = this._measureColumnWidth();
-
     if (calculatedWidth !== this.columnWidth || newH !== this.viewportHeight) {
       this.columnWidth = calculatedWidth;
       this.viewportHeight = newH;
@@ -435,7 +343,6 @@ export class VirtualScroller {
     const top    = this.scrollTop - this.buffer;
     const bottom = this.scrollTop + this.viewportHeight + this.buffer;
 
-    // Binary search for first visible block
     let start = this._findFirstVisible(top);
     let end = start;
 
@@ -445,16 +352,12 @@ export class VirtualScroller {
 
     const [prevStart, prevEnd] = this.renderedRange;
 
-    // Unmount blocks scrolled above buffer — skip any with an active selection
     for (let i = prevStart; i < start && i >= 0 && i < this.entries.length; i++) {
       this._unmount(i);
     }
-    // Unmount blocks scrolled below buffer
     for (let i = end; i <= prevEnd && i >= 0 && i < this.entries.length; i++) {
       this._unmount(i);
     }
-
-    // Mount newly visible blocks
     for (let i = start; i < end; i++) {
       this._mount(i);
     }
@@ -472,10 +375,6 @@ export class VirtualScroller {
     return lo;
   }
 
-  /**
-   * Check whether a rendered block contains the current browser selection.
-   * Used to prevent virtualizing a block that TTS is actively reading.
-   */
   private _blockHasSelection(entry: BlockEntry): boolean {
     if (!entry.el) return false;
     const sel = window.getSelection();
@@ -486,7 +385,7 @@ export class VirtualScroller {
 
   private _mount(i: number): void {
     const entry = this.entries[i];
-    if (entry.el) return; // already mounted
+    if (entry.el) return;
 
     const el = this._acquireEl();
     el.style.position = 'absolute';
@@ -499,30 +398,54 @@ export class VirtualScroller {
     const blockAnnots = this.annotations.filter(a => a.blockId === entry.block.id);
     renderBlock(entry.block, el, this.columnWidth, this.settings, blockAnnots);
 
-    // ARIA: label block by type for screen readers + TTS
-    const b = entry.block;
-    if (b.type === 'heading') {
+    if (entry.block.type === 'heading') {
       el.setAttribute('role', 'heading');
-      el.setAttribute('aria-level', String(b.level ?? 2));
-    } else if (b.type === 'paragraph') {
+      el.setAttribute('aria-level', String(entry.block.level ?? 2));
+    } else if (entry.block.type === 'paragraph') {
       el.removeAttribute('role');
     }
 
     this.container.appendChild(el);
     entry.el = el;
+    
+    this._updateMarkers(i);
+  }
+
+  private _updateMarkers(i: number): void {
+    const entry = this.entries[i];
+    if (!entry.el) return;
+
+    const annos = this.annotations.filter(a => a.blockId === entry.block.id);
+    const hasHighlight = annos.some(a => a.type === 'highlight');
+    const hasNote = annos.some(a => a.type === 'note');
+
+    let markersEl = entry.el.querySelector('.vblock-markers') as HTMLElement;
+
+    if (!hasHighlight && !hasNote) {
+      if (markersEl) markersEl.remove();
+      return;
+    }
+
+    if (!markersEl) {
+      markersEl = document.createElement('div');
+      markersEl.className = 'vblock-markers speechify-ignore';
+      markersEl.setAttribute('aria-hidden', 'true');
+      entry.el.appendChild(markersEl);
+    }
+
+    markersEl.innerHTML = '';
+    if (hasHighlight) {
+      markersEl.innerHTML += `<svg class="marker-bookmark" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>`;
+    }
+    if (hasNote) {
+      markersEl.innerHTML += `<svg class="marker-note" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
+    }
   }
 
   private _unmount(i: number): void {
     const entry = this.entries[i];
     if (!entry.el) return;
-
-    // PINNING: Never unmount a block that is being read by TTS.
-    // Speechify relies on the DOM node existing to maintain its state.
-    if (this._blockHasSelection(entry)) {
-      // If we are pinning a block that is far outside the buffer,
-      // we should still keep its position updated if it's absolute.
-      return;
-    }
+    if (this._blockHasSelection(entry)) return;
 
     this.container.removeChild(entry.el);
     this._releaseEl(entry.el);
@@ -555,18 +478,19 @@ export class VirtualScroller {
 
   private _checkChapterChange(): void {
     if (!this.onChapterEnd) return;
-    // Find the block at scroll top
     const idx = this._findFirstVisible(this.scrollTop);
     const entry = this.entries[idx];
     if (!entry) return;
-    const chapterIdx = parseInt(entry.block.id.split('-b')[0].replace(/\D/g, '')) || 0;
-    if (chapterIdx !== this.lastChapterIndex) {
-      this.lastChapterIndex = chapterIdx;
-      this.onChapterEnd();
+    const chapterPrefix = entry.block.id.split('-b')[0];
+    // Find chapter index from label/id logic
+    if (chapterPrefix !== this.lastChapterPrefix) {
+        this.lastChapterPrefix = chapterPrefix;
+        this.onChapterEnd();
     }
   }
 
-  /** Return the block id at the current scroll position (for TOC highlighting) */
+  private lastChapterPrefix = '';
+
   getCurrentBlockId(): string | null {
     const idx = this._findFirstVisible(this.scrollTop + 10);
     return this.entries[idx]?.block.id ?? null;

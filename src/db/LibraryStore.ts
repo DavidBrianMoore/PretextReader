@@ -38,6 +38,15 @@ const STORE_BOOKS = 'books';
 
 export class LibraryStore {
   private db: IDBDatabase | null = null;
+  private onChange: (() => void) | null = null;
+
+  private notify() {
+    if (this.onChange) this.onChange();
+  }
+
+  setListener(cb: () => void) {
+    this.onChange = cb;
+  }
 
   private async init(): Promise<IDBDatabase> {
     if (this.db) return this.db;
@@ -88,7 +97,10 @@ export class LibraryStore {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_BOOKS, 'readwrite');
       tx.objectStore(STORE_BOOKS).put(saved);
-      tx.oncomplete = () => resolve(id);
+      tx.oncomplete = () => {
+        this.notify();
+        resolve(id);
+      };
       tx.onerror = () => reject(tx.error);
     });
   }
@@ -108,7 +120,10 @@ export class LibraryStore {
           store.put(book);
         }
       };
-      tx.oncomplete = () => resolve();
+      tx.oncomplete = () => {
+        this.notify();
+        resolve();
+      };
       tx.onerror = () => reject(tx.error);
     });
   }
@@ -138,7 +153,10 @@ export class LibraryStore {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_BOOKS, 'readwrite');
       tx.objectStore(STORE_BOOKS).delete(id);
-      tx.oncomplete = () => resolve();
+      tx.oncomplete = () => {
+        this.notify();
+        resolve();
+      };
       tx.onerror = () => reject(tx.error);
     });
   }
@@ -157,7 +175,10 @@ export class LibraryStore {
           store.put(book);
         }
       };
-      tx.oncomplete = () => resolve();
+      tx.oncomplete = () => {
+        this.notify();
+        resolve();
+      };
       tx.onerror = () => reject(tx.error);
     });
   }
@@ -175,7 +196,10 @@ export class LibraryStore {
           store.put(book);
         }
       };
-      tx.oncomplete = () => resolve();
+      tx.oncomplete = () => {
+        this.notify();
+        resolve();
+      };
       tx.onerror = () => reject(tx.error);
     });
   }
@@ -198,7 +222,10 @@ export class LibraryStore {
           store.put(book);
         }
       };
-      tx.oncomplete = () => resolve();
+      tx.oncomplete = () => {
+        this.notify();
+        resolve();
+      };
       tx.onerror = () => reject(tx.error);
     });
   }

@@ -1,34 +1,139 @@
+import { prepare, layout } from '@chenglou/pretext';
 import type { Annotation } from '../db/LibraryStore';
 import type { ContentBlock, TextRun } from '../epub/types';
+import { type ReaderSettings, fontString, headingFontString } from './theme';
 
-export function renderParagraph(
+const PARAGRAPH_GAP = 16;  // px between blocks
+const HEADING_GAP = 28;    // extra space before headings
+const HR_HEIGHT = 32;
+const CODE_PADDING = 24;
+
+// ─── Height Estimation via Pretext ────────────────────────────────────────────
+
+interface PreparedCache {
+  prepared: ReturnType<typeof prepare>;
+  font: string;
+}
+
+const _preparedCache = new Map<string, PreparedCache>();
+
+function getPrepared(blockId: string, text: string, font: string): ReturnType<typeof prepare> {
+  const key = `${blockId}::${font}`;
+  const cached = _preparedCache.get(key);
+  if (cached && cached.font === font) return cached.prepared;
+  const prepared = prepare(text, font);
+  _preparedCache.set(key, { prepared, font });
+  return prepared;
+}
+
+export function clearPreparedCache(): void {
+  _preparedCache.clear();
+}
+
+function runsToPlainText(runs: TextRun[]): string {
+  return runs.map(r => r.text).join('');
+}
+
+/**
+ * Predict height of a block at the given column width.
+ */
+export function predictBlockHeight(
+  block: ContentBlock,
+  columnWidth: number,
+  settings: ReaderSettings,
+): number {
+  if (block.type === 'hr') return HR_HEIGHT + PARAGRAPH_GAP;
+
+  if (block.type === 'image') {
+    return Math.min(500, columnWidth * 0.8) + PARAGRAPH_GAP;
+  }
+
+  if (block.type === 'code') {
+    const text = runsToPlainText(block.runs ?? []);
+    const monoFont = `${settings.fontSize - 2}px 'Source Code Pro', monospace`;
+    const prepared = getPrepared(block.id, text, monoFont);
+    const { height } = layout(prepared, columnWidth - CODE_PADDING * 2, settings.lineHeight - 2);
+    return height + CODE_PADDING * 2 + PARAGRAPH_GAP;
+  }
+
+  if (block.type === 'heading') {
+    const level = block.level ?? 2;
+    const font = headingFontString(level, settings);
+    const text = runsToPlainText(block.runs ?? []);
+    const lh = Math.round(settings.lineHeight * (level <= 2 ? 1.3 : 1.1));
+    const prepared = getPrepared(block.id, text, font);
+    const { height } = layout(prepared, columnWidth, lh);
+    return height + HEADING_GAP + PARAGRAPH_GAP;
+  }
+
+  // paragraph / blockquote
+  const font = fontString(settings);
+  const text = runsToPlainText(block.runs ?? []);
+  const effectiveWidth = block.type === 'blockquote' ? columnWidth - 40 : columnWidth;
+  const prepared = getPrepared(block.id, text, font);
+  const { height } = layout(prepared, effectiveWidth, settings.lineHeight);
+  return height + PARAGRAPH_GAP + (block.type === 'blockquote' ? 8 : 0);
+}
+
+// ─── DOM Rendering ────────────────────────────────────────────────────────────
+
+export function renderBlock(
   block: ContentBlock,
   el: HTMLElement,
-  annotations: Annotation[],
-  fontSize: number,
-  fontFamily: string
+  columnWidth: number,
+  settings: ReaderSettings,
+  annotations: Annotation[] = []
 ): number {
   el.innerHTML = '';
   el.classList.add('vscroll-block', `block-${block.type}`);
   el.setAttribute('data-block-id', block.id);
-  el.style.fontSize = `${fontSize}px`;
-  el.style.fontFamily = fontFamily;
-
+  el.style.fontSize = `${settings.fontSize}px`;
+  // Body font family applied via CSS var, but we can set it here too if needed
+  
   const container = document.createElement('div');
-  container.className = 'paragraph-inner';
+  container.className = 'block-inner';
   el.appendChild(container);
 
-  if (block.type === 'image' && block.src) {
-    const img = document.createElement('img');
-    img.src = block.src;
-    img.alt = block.alt || '';
-    img.loading = 'lazy';
-    container.appendChild(img);
-    return 300; 
+  if (block.type === 'hr') {
+    const hr = document.createElement('div');
+    hr.className = 'block-hr-line speechify-ignore';
+    el.appendChild(hr);
+    return HR_HEIGHT + PARAGRAPH_GAP;
   }
 
-  // Map annotations to the runs
-  renderRuns(block.runs || [], container, annotations);
+  if (block.type === 'image') {
+    const img = document.createElement('img');
+    img.src = block.src ?? '';
+    img.alt = block.alt ?? '';
+    img.className = 'block-image';
+    img.loading = 'lazy';
+    container.appendChild(img);
+    return Math.min(500, columnWidth * 0.8) + PARAGRAPH_GAP;
+  }
+
+  let inner: HTMLElement;
+  if (block.type === 'heading') {
+    const level = block.level ?? 2;
+    inner = document.createElement(`h${level}`);
+    inner.className = `block-heading level-${level}`;
+  } else if (block.type === 'blockquote') {
+    inner = document.createElement('blockquote');
+    inner.className = 'block-blockquote';
+  } else if (block.type === 'code') {
+    const pre = document.createElement('pre');
+    inner = document.createElement('code');
+    pre.appendChild(inner);
+    container.appendChild(pre);
+  } else {
+    inner = document.createElement('p');
+    inner.className = 'block-paragraph';
+  }
+
+  if (block.type !== 'code') {
+    container.appendChild(inner);
+  }
+
+  renderRuns(block.runs || [], inner, annotations);
 
   return el.offsetHeight || 100;
 }
@@ -40,7 +145,6 @@ function renderRuns(runs: TextRun[], container: HTMLElement, annotations: Annota
     const runText = run.text;
     const runEnd = blockOffset + runText.length;
 
-    // Filter annotations that intersect with this run
     const active = annotations.filter(a => {
        const start = a.startOffset ?? 0;
        const end = a.endOffset ?? 0;
@@ -52,7 +156,6 @@ function renderRuns(runs: TextRun[], container: HTMLElement, annotations: Annota
     if (active.length === 0) {
       container.appendChild(createRunNode(run));
     } else {
-      // Sort annotations by start offset
       active.sort((a, b) => (a.startOffset ?? 0) - (b.startOffset ?? 0));
       
       let lastPos = blockOffset;
@@ -60,13 +163,11 @@ function renderRuns(runs: TextRun[], container: HTMLElement, annotations: Annota
         const aStart = anno.startOffset ?? 0;
         const aEnd = anno.endOffset ?? 0;
 
-        // Text before annotation
         if (aStart > lastPos) {
            const beforeText = runText.substring(lastPos - blockOffset, aStart - blockOffset);
            container.appendChild(createRunNode({ ...run, text: beforeText }));
         }
 
-        // The annotation itself
         const intersectStart = Math.max(blockOffset, aStart);
         const intersectEnd = Math.min(runEnd, aEnd);
         const mark = document.createElement('mark');
@@ -89,7 +190,6 @@ function renderRuns(runs: TextRun[], container: HTMLElement, annotations: Annota
         lastPos = intersectEnd;
       }
 
-      // Text after last annotation
       if (lastPos < runEnd) {
          const afterText = runText.substring(lastPos - blockOffset);
          container.appendChild(createRunNode({ ...run, text: afterText }));
@@ -101,18 +201,20 @@ function renderRuns(runs: TextRun[], container: HTMLElement, annotations: Annota
 }
 
 function createRunNode(run: TextRun): HTMLElement | Text {
-  let el: HTMLElement | Text;
-  
   if (run.italic || run.bold || run.href) {
     const span = document.createElement(run.href ? 'a' : 'span');
-    if (run.href) (span as HTMLAnchorElement).href = run.href;
-    if (run.italic) span.style.fontStyle = 'italic';
-    if (run.bold) span.style.fontWeight = 'bold';
+    if (run.href) {
+        const a = span as HTMLAnchorElement;
+        a.href = run.href;
+        if (!run.href.startsWith('#')) {
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+        }
+    }
+    if (run.italic) span.classList.add('run-italic');
+    if (run.bold) span.classList.add('run-bold');
     span.textContent = run.text;
-    el = span;
-  } else {
-    el = document.createTextNode(run.text);
+    return span;
   }
-
-  return el;
+  return document.createTextNode(run.text);
 }

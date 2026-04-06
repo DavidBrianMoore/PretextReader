@@ -6,8 +6,11 @@ import { Toolbar } from '../ui/Toolbar';
 import { TableOfContents } from '../ui/TableOfContents';
 import { SearchView } from '../ui/SearchView';
 import { AnnotationManager } from './AnnotationManager';
-import type { Annotation } from '../db/LibraryStore';
-import { libraryStore } from '../db/LibraryStore';
+import { libraryStore, type Annotation } from '../db/LibraryStore';
+import { SyncManager } from './Sync';
+import { ActionMenu } from '../ui/ActionMenu';
+import { NoteEditor } from '../ui/NoteEditor';
+import { ChatSidebar } from '../ui/ChatSidebar';
 
 export class ReaderView {
   private el: HTMLElement;
@@ -18,17 +21,21 @@ export class ReaderView {
   private toc!: TableOfContents;
   private search!: SearchView;
   private annos!: AnnotationManager;
+  private actionMenu!: ActionMenu;
+  private noteEditor!: NoteEditor;
+  private chatSidebar: ChatSidebar;
+  
   private currentChapterIndex = 0;
   private allBlocks: ContentBlock[] = [];
   private onClose: () => void;
-  private bookId?: string; // used for persistence
+  private bookId: string;
   private onProgress?: (blockId: string, top: number) => void;
   private _onWindowScroll: () => void = () => {};
 
   constructor(container: HTMLElement, book: Book, onClose: () => void, settings?: ReaderSettings, onProgress?: (blockId: string, top: number) => void, bookId?: string) {
     this.book = book;
     this.onClose = onClose;
-    this.bookId = bookId;
+    this.bookId = bookId || 'default_book';
     this.onProgress = onProgress;
     this.settings = settings ?? { ...DEFAULT_SETTINGS };
 
@@ -39,7 +46,6 @@ export class ReaderView {
     const scrollContainer = document.createElement('div');
     scrollContainer.className = 'reader-scroll';
     scrollContainer.id = 'reader-scroll';
-    // lang attribute so TTS (Speechify, etc.) pronounces text correctly
     scrollContainer.lang = book.metadata.language || 'en';
     scrollContainer.setAttribute('aria-label', book.metadata.title || 'Book content');
     this.el.appendChild(scrollContainer);
@@ -50,12 +56,34 @@ export class ReaderView {
     applyTheme(THEMES[this.settings.theme]);
     applyFont(this.settings.font, this.settings.fontSize, this.settings.lineHeight);
 
-    // Build TOC
+    // ─── Initialize Helpers ──────────────────────────────────────────────────
+    
     this.toc = new TableOfContents({
       onNavigate: (ci) => this._navigateToChapter(ci),
+      onNavigateToBlock: (bid) => this.scroller.scrollToBlock(bid),
+      onDeleteBookmark: (id) => this._deleteAnnotation(id),
+      onDeleteNote: (id) => this._deleteAnnotation(id),
       onClose: () => {},
     });
-    this.toc.setEntries(book.toc, book.metadata.title);
+
+    this.actionMenu = new ActionMenu({
+      onBookmark: () => this._toggleBookmark(),
+      onAddNote: () => this._openNoteEditor(),
+      onAskAI: () => this._openChat(),
+      onClose: () => this._onActionMenuClose(),
+    });
+
+    this.chatSidebar = new ChatSidebar();
+
+    this.noteEditor = new NoteEditor({
+      onSave: (content) => this._saveNote(content),
+      onCancel: () => {},
+    });
+
+    // Build Search
+    this.search = new SearchView(book, {
+        onNavigate: (blockId) => this.scrollToBlock(blockId),
+    });
 
     // Build Toolbar
     this.toolbar = new Toolbar({
@@ -69,15 +97,9 @@ export class ReaderView {
       onClose: () => this._close(),
     }, this.settings);
 
-    // Build Search
-    this.search = new SearchView(book, {
-        onNavigate: (blockId) => this.scrollToBlock(blockId),
-    });
-
     // Build Annotations
     this.annos = new AnnotationManager(scrollContainer, {
         onAdd: async (anno) => {
-            if (!this.bookId) return;
             const fullAnno: Annotation = {
                 ...anno,
                 id: Math.random().toString(36).substring(2),
@@ -85,39 +107,39 @@ export class ReaderView {
             };
             await libraryStore.addAnnotation(this.bookId, fullAnno);
             this.refreshAnnotations();
+            SyncManager.pushProgress(this.bookId);
         },
         onDelete: async (id) => {
-            if (!this.bookId) return;
             await libraryStore.deleteAnnotation(this.bookId, id);
             this.refreshAnnotations();
+            SyncManager.pushProgress(this.bookId);
         }
     });
 
-    // Flatten all blocks across chapters
     this.allBlocks = book.chapters.flatMap(ch => ch.blocks);
 
     // Create virtual scroller
-    this.scroller = new VirtualScroller(scrollContainer, this.settings, () => {
-      this._updateTocHighlight();
-    });
+    this.scroller = new VirtualScroller(
+      scrollContainer, 
+      this.settings, 
+      () => this._updateTocHighlight(),
+      (blockId, x, y) => this._onBlockAction(blockId, x, y)
+    );
 
     this.scroller.setBlocks(this.allBlocks);
     this.refreshAnnotations();
     this._updateTocHighlight();
 
-    // Track scrolling for TOC highlight and progress
     this._onWindowScroll = () => {
       this._updateTocHighlight();
       this._reportProgress();
     };
     window.addEventListener('scroll', this._onWindowScroll, { passive: true });
 
-    // Keyboard shortcuts
     document.addEventListener('keydown', this._onKeyDown);
   }
 
   private _onKeyDown = (e: KeyboardEvent): void => {
-    // Ignore reader shortcuts if user is typing in an input
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
     if (e.key === 'Escape') this._close();
@@ -134,7 +156,6 @@ export class ReaderView {
     const blockId = this.scroller.getCurrentBlockId();
     if (!blockId) return;
 
-    // Figure out which chapter this block belongs to
     const chapterPrefix = blockId.split('-b')[0];
     const ci = this.book.chapters.findIndex(ch => ch.id === chapterPrefix);
     if (ci >= 0 && ci !== this.currentChapterIndex) {
@@ -158,19 +179,150 @@ export class ReaderView {
   async refreshAnnotations(): Promise<void> {
     if (!this.bookId) return;
     const saved = await libraryStore.getBook(this.bookId);
-    if (saved && saved.annotations) {
-        this.scroller.setAnnotations(saved.annotations);
+    if (saved) {
+        const annos = saved.annotations || [];
+        this.scroller.setAnnotations(annos);
+        
+        // Update TOC Data
+        const simplifiedBookmarks = annos.filter(a => a.type === 'highlight').map(a => ({
+            id: a.id,
+            blockId: a.blockId,
+            text: a.text,
+            chapterLabel: this._getChapterLabel(a.blockId),
+            timestamp: a.createdAt
+        }));
+        const simplifiedNotes = annos.filter(a => a.type === 'note').map(a => ({
+            id: a.id,
+            blockId: a.blockId,
+            content: a.note || '',
+            chapterLabel: this._getChapterLabel(a.blockId),
+            timestamp: a.createdAt
+        }));
+        
+        this.toc.setData(this.book.toc, this.book.metadata.title, simplifiedBookmarks as any, simplifiedNotes as any);
     }
+  }
+
+  private _getChapterLabel(blockId: string): string {
+    const prefix = blockId.split('-b')[0];
+    return this.book.chapters.find(ch => ch.id === prefix)?.label || 'Unknown Chapter';
   }
 
   private _navigateToChapter(chapterIndex: number): void {
     const chapter = this.book.chapters[chapterIndex];
     if (!chapter || chapter.blocks.length === 0) return;
-    const firstBlock = chapter.blocks[0];
-    this.scroller.scrollToBlock(firstBlock.id);
+    this.scroller.scrollToBlock(chapter.blocks[0].id);
     this.currentChapterIndex = chapterIndex;
     this.toc.setActiveChapter(chapterIndex);
   }
+
+  // ─── Block Actions ─────────────────────────────────────────────────────────
+
+  private _activeBlockId: string | null = null;
+
+  private async _onBlockAction(blockId: string, x: number, y: number): Promise<void> {
+    this._activeBlockId = blockId;
+    const saved = await libraryStore.getBook(this.bookId);
+    const annos = saved?.annotations || [];
+    const isBookmarked = annos.some(a => a.blockId === blockId && a.type === 'highlight');
+    const hasNote = annos.some(a => a.blockId === blockId && a.type === 'note');
+    this.actionMenu.show(x, y, isBookmarked, hasNote);
+  }
+
+  private _onActionMenuClose(): void {
+    this._activeBlockId = null;
+  }
+
+  private async _openNoteEditor(): Promise<void> {
+    if (!this._activeBlockId) return;
+    const saved = await libraryStore.getBook(this.bookId);
+    const note = saved?.annotations?.find(a => a.blockId === this._activeBlockId && a.type === 'note');
+    this.noteEditor.show(note?.note || '');
+  }
+
+  private _openChat(): void {
+    if (!this._activeBlockId) {
+      this.chatSidebar.show();
+      return;
+    }
+    
+    // Find block text
+    let text = '';
+    for (const chapter of this.book.chapters) {
+      const block = chapter.blocks.find(b => b.id === this._activeBlockId);
+      if (block) {
+        text = block.runs?.map(r => r.text).join('') || '';
+        break;
+      }
+    }
+    
+    this.chatSidebar.show(text);
+  }
+
+  private async _toggleBookmark(): Promise<void> {
+    if (!this._activeBlockId) return;
+    const bid = this._activeBlockId;
+    
+    const saved = await libraryStore.getBook(this.bookId);
+    const existing = saved?.annotations?.find(a => a.blockId === bid && a.type === 'highlight');
+
+    if (existing) {
+      await libraryStore.deleteAnnotation(this.bookId, existing.id);
+    } else {
+      const block = this.allBlocks.find(b => b.id === bid);
+      const text = (block?.runs || []).map(r => r.text).join('').substring(0, 100);
+      
+      await libraryStore.addAnnotation(this.bookId, {
+        id: Math.random().toString(36).substring(2),
+        blockId: bid,
+        type: 'highlight',
+        text: text || 'Bookmark',
+        createdAt: Date.now()
+      });
+    }
+    
+    this.refreshAnnotations();
+    SyncManager.pushProgress(this.bookId);
+  }
+
+  private async _saveNote(content: string): Promise<void> {
+    if (!this._activeBlockId) return;
+    const bid = this._activeBlockId;
+    
+    const saved = await libraryStore.getBook(this.bookId);
+    const existing = saved?.annotations?.find(a => a.blockId === bid && a.type === 'note');
+
+    if (!content.trim()) {
+      if (existing) await libraryStore.deleteAnnotation(this.bookId, existing.id);
+    } else {
+      if (existing) {
+        await libraryStore.deleteAnnotation(this.bookId, existing.id);
+      }
+      
+      const block = this.allBlocks.find(b => b.id === bid);
+      const text = (block?.runs || []).map(r => r.text).join('').substring(0, 100);
+
+      await libraryStore.addAnnotation(this.bookId, {
+        id: Math.random().toString(36).substring(2),
+        blockId: bid,
+        type: 'note',
+        text: text || 'Note',
+        note: content.trim(),
+        createdAt: Date.now()
+      });
+    }
+    
+    this.refreshAnnotations();
+    SyncManager.pushProgress(this.bookId);
+  }
+
+  private async _deleteAnnotation(id: string): Promise<void> {
+    await libraryStore.deleteAnnotation(this.bookId, id);
+    this.refreshAnnotations();
+    SyncManager.pushProgress(this.bookId);
+  }
+
+  // ─── Settings & Others ──────────────────────────────────────────────────────
 
   private _changeTheme(theme: ThemeName): void {
     this.settings = { ...this.settings, theme };
@@ -196,66 +348,26 @@ export class ReaderView {
 
   private async _share(): Promise<void> {
     const file = this.book.sourceFile;
-    if (!file) {
-      alert('This book cannot be shared as the source file is missing.');
-      return;
-    }
-
-    if (!navigator.share) {
-      alert('Sharing is not supported on this browser.');
-      return;
-    }
+    if (!file) return alert('Source file missing.');
+    if (!navigator.share) return alert('Share not supported.');
 
     try {
-      // Check if sharing files is supported
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: this.book.metadata.title,
-          text: `Reading ${this.book.metadata.title} on Pretext Reader`,
-        });
+        await navigator.share({ files: [file], title: this.book.metadata.title });
       } else {
-        // Fallback to sharing text/title
-        await navigator.share({
-          title: this.book.metadata.title,
-          text: `I'm reading ${this.book.metadata.title} on Pretext Reader!`,
-          url: window.location.href,
-        });
+        await navigator.share({ title: this.book.metadata.title, url: window.location.href });
       }
-    } catch (err) {
-      if ((err as Error).name !== 'AbortError') {
-        console.error('Share failed:', err);
-      }
-    }
+    } catch (err) { }
   }
 
   private async _shareText(): Promise<void> {
-    if (!navigator.share) {
-      alert('Sharing is not supported on this browser.');
-      return;
-    }
-
+    if (!navigator.share) return alert('Share not supported.');
     try {
-      // Extract all text from all chapters
       const fullText = this.book.chapters
-        .map(chapter => {
-          const chapterText = chapter.blocks
-            .map(block => (block.runs || []).map(run => run.text).join(''))
-            .filter(text => text.trim().length > 0)
-            .join('\n\n');
-          return `${chapter.label.toUpperCase()}\n\n${chapterText}`;
-        })
+        .map(ch => `${ch.label.toUpperCase()}\n\n${ch.blocks.map(b => (b.runs || []).map(r => r.text).join('')).join('\n\n')}`)
         .join('\n\n\n');
-
-      await navigator.share({
-        title: this.book.metadata.title,
-        text: fullText,
-      });
-    } catch (err) {
-      if ((err as Error).name !== 'AbortError') {
-        console.error('Share text failed:', err);
-      }
-    }
+      await navigator.share({ title: this.book.metadata.title, text: fullText });
+    } catch (err) { }
   }
 
   private _close(): void {
@@ -271,6 +383,9 @@ export class ReaderView {
     this.toc.destroy();
     this.search.destroy();
     this.annos.destroy();
+    this.actionMenu.destroy();
+    this.noteEditor.destroy();
+    this.chatSidebar.destroy();
     this.el.remove();
   }
 }

@@ -147,9 +147,21 @@ export class Toolbar {
     </svg>`;
     shareTextBtn.addEventListener('click', () => this.callbacks.onShareText());
 
+    const syncBtn = document.createElement('button');
+    syncBtn.className = 'toolbar-btn toolbar-sync-btn';
+    syncBtn.id = 'toolbar-sync-btn';
+    syncBtn.setAttribute('aria-label', 'Cloud Sync Status');
+    syncBtn.title = 'Syncing...';
+    syncBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M17.5 19A3.5 3.5 0 0 0 13 15.7V12a1 1 0 0 0-2 0v3.7a3.5 3.5 0 0 0-4.5 3.3"/>
+      <path d="M12 5a9 9 0 0 0-9 9 9 9 0 0 0 6 8.5"/>
+      <path d="M12 5a9 9 0 0 1 9 9 9 9 0 0 1-6 8.5"/>
+    </svg>`;
+    
     right.appendChild(fsMinus);
     right.appendChild(fsPlus);
     right.appendChild(fontSel);
+    right.appendChild(syncBtn);
     right.appendChild(shareBtn);
     right.appendChild(shareTextBtn);
     right.appendChild(themeGroup);

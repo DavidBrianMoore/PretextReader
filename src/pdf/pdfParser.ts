@@ -11,9 +11,15 @@ try {
 }
 
 export async function parsePdf(file: File): Promise<Book> {
-  const arrayBuffer = await file.arrayBuffer();
-  const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+  // Use a Blob URL instead of loading the entire ArrayBuffer into memory at once.
+  // This allows PDF.js to use more efficient streaming/partial loading.
+  const url = URL.createObjectURL(file);
+  const loadingTask = pdfjs.getDocument({ url });
   const pdf = await loadingTask.promise;
+
+  // Revoke URL after loading ends to free memory (loadingTask keeps its own reference)
+  // URL.revokeObjectURL(url); // Wait until done below if needed, but pdfjs typically finishes doc-level load quickly.
+
 
   // 1. Metadata
   const metadata = await pdf.getMetadata();
@@ -191,11 +197,19 @@ export async function parsePdf(file: File): Promise<Book> {
       depth: 0,
       children: []
     });
-  } catch (pageErr) {
-    console.error(`Failed to parse page ${i}:`, pageErr);
-    continue;
+    } catch (pageErr) {
+      console.error(`Failed to parse page ${i}:`, pageErr);
+      continue;
+    }
+
+    // Yield control to the main thread every 10 pages to keep UI responsive
+    if (i % 10 === 0) {
+      await new Promise(r => setTimeout(r, 0));
+    }
   }
-}
+
+  // Revoke the Blob URL once the total parsing is done
+  URL.revokeObjectURL(url);
 
   return {
     metadata: bookMetadata,
