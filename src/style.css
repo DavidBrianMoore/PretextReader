@@ -1159,12 +1159,13 @@ a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px
 /* ─── Footer ────────────────────────────────────────────────────────────────── */
 #footer {
   text-align: center;
-  padding: 40px 24px 60px;
-  opacity: 0.5;
+  padding: 40px 24px 80px;
+  opacity: 0.8;
   font-family: var(--font-ui);
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   letter-spacing: 0.05em;
   color: var(--text-muted);
   pointer-events: none;
   width: 100%;
+  display: block;
 }
