@@ -1,122 +1,68 @@
-import type { SavedBook } from '../db/LibraryStore';
-
 export interface DropzoneCallbacks {
   onFile: (file: File) => void;
   onUrl?: (url: string) => void;
-  onOpenSavedBook: (id: string) => void;
-  onDeleteSavedBook: (id: string) => void;
 }
 
+/**
+ * Dropzone (now renamed ImportModal) handles the sleek modal interface for 
+ * adding new content to the library.
+ */
 export class Dropzone {
   private el: HTMLElement;
+  private overlay: HTMLElement;
   private callbacks: DropzoneCallbacks;
-  private savedBooks: SavedBook[];
 
-  constructor(container: HTMLElement, callbacks: DropzoneCallbacks, savedBooks: SavedBook[] = []) {
+  constructor(container: HTMLElement, callbacks: DropzoneCallbacks) {
     this.callbacks = callbacks;
-    this.savedBooks = savedBooks;
+    
+    this.overlay = document.createElement('div');
+    this.overlay.className = 'import-overlay';
+    
     this.el = this._build();
-    container.appendChild(this.el);
+    this.overlay.appendChild(this.el);
+    container.appendChild(this.overlay);
+
+    // Close on overlay click
+    this.overlay.addEventListener('click', (e) => {
+      if (e.target === this.overlay) this.destroy();
+    });
   }
 
   private _build(): HTMLElement {
     const wrap = document.createElement('div');
-    wrap.className = 'dropzone-wrap';
-    wrap.id = 'dropzone-wrap';
+    wrap.className = 'import-modal';
 
     wrap.innerHTML = `
-      <div class="dropzone-hero">
-        <div class="dropzone-icon">
-          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-            <rect x="8" y="4" width="36" height="48" rx="4" stroke="var(--accent)" stroke-width="2.5" fill="none"/>
-            <rect x="16" y="4" width="36" height="48" rx="4" stroke="var(--accent)" stroke-width="2.5" fill="var(--surface)" opacity="0.9"/>
-            <line x1="24" y1="20" x2="40" y2="20" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
-            <line x1="24" y1="28" x2="40" y2="28" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
-            <line x1="24" y1="36" x2="34" y2="36" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
-            <circle cx="48" cy="48" r="12" fill="var(--accent)" opacity="0.15" stroke="var(--accent)" stroke-width="2"/>
-            <line x1="48" y1="43" x2="48" y2="53" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
-            <line x1="43" y1="48" x2="53" y2="48" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <h1 class="dropzone-title">Pretext Reader</h1>
-        <p class="dropzone-sub">Reflowable EPUB, PDF & DOCX reader.</p>
+      <div class="import-header">
+        <h2 class="import-title">Import Book</h2>
+        <button class="import-close" id="import-close-btn">&times;</button>
       </div>
 
-      <div class="dropzone-drop" id="dropzone-drop">
-        <div class="dropzone-drop-inner">
-          <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 4v20M10 16l8 8 8-8"/><path d="M6 28h24"/>
-          </svg>
-          <p class="dropzone-drop-label">Drop an EPUB, PDF, or DOCX here</p>
-          <p class="dropzone-drop-hint">or</p>
-          <label class="dropzone-file-btn" for="book-file-input" id="dropzone-file-label">
-            Browse files
-            <input type="file" accept=".epub,application/epub+zip,.pdf,application/pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" id="book-file-input" class="sr-only" />
+      <div class="import-drop-zone" id="dropzone-drop">
+        <div class="import-drop-content">
+          <div class="import-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <p>Drop your EPUB, PDF, or DOCX here</p>
+          <label class="import-file-btn" for="book-file-input">
+            Choose File
+            <input type="file" accept=".epub,.pdf,.docx" id="book-file-input" class="sr-only" />
           </label>
         </div>
       </div>
 
-      ${this.savedBooks.length > 0 ? `
-        <div class="library-section">
-          <h2 class="library-title">Recently Read</h2>
-          <div class="library-grid">
-            ${this.savedBooks.map(book => `
-              <div class="library-card" data-id="${book.id}">
-                <div class="library-card-content">
-                  <div class="library-card-badge">${(book.sourceType || 'EPUB').toUpperCase()}</div>
-                  <h3 class="library-card-title">${book.metadata.title}</h3>
-                  <p class="library-card-author">${book.metadata.author || 'Unknown Author'}</p>
-                </div>
-                <button class="library-card-delete" title="Remove from Library">&times;</button>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      ` : ''}
-
-      <div class="dropzone-url-group">
-        <input type="text" id="dropzone-url-input" placeholder="Paste a book URL..." class="dropzone-url-input" aria-label="Book URL" />
-        <button id="dropzone-url-btn" class="dropzone-url-btn">Open URL</button>
-      </div>
-
-      <div class="dropzone-features">
-        <div class="dropzone-feature">
-          <span class="feature-icon">📚</span>
-          <span>EPUB, PDF & DOCX</span>
-        </div>
-        <div class="dropzone-feature">
-          <span class="feature-icon">⚡</span>
-          <span>Virtualized scroll</span>
-        </div>
-        <div class="dropzone-feature">
-          <span class="feature-icon">🎨</span>
-          <span>3 beautiful themes</span>
-        </div>
-        <div class="dropzone-feature">
-          <span class="feature-icon">🔤</span>
-          <span>Mixed font support</span>
+      <div class="import-url-group">
+        <p class="import-label">Or pull from a URL</p>
+        <div class="import-url-input-wrap">
+          <input type="text" id="dropzone-url-input" placeholder="https://example.com/book.epub" class="import-url-input" />
+          <button id="dropzone-url-btn" class="import-url-btn">Fetch</button>
         </div>
       </div>
     `;
 
-    // Library interactions
-    wrap.querySelectorAll('.library-card').forEach(card => {
-      const id = card.getAttribute('data-id')!;
-      
-      // Open book on main click
-      card.addEventListener('click', (e) => {
-        if ((e.target as HTMLElement).closest('.library-card-delete')) return;
-        this.callbacks.onOpenSavedBook(id);
-      });
-
-      // Delete book
-      card.querySelector('.library-card-delete')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.callbacks.onDeleteSavedBook(id);
-        card.classList.add('removing');
-        setTimeout(() => card.remove(), 300);
-      });
-    });
+    wrap.querySelector('#import-close-btn')?.addEventListener('click', () => this.destroy());
 
     // URL input
     const urlInput = wrap.querySelector<HTMLInputElement>('#dropzone-url-input')!;
@@ -126,8 +72,6 @@ export class Dropzone {
       const url = urlInput.value.trim();
       if (url && this.callbacks.onUrl) {
         this.callbacks.onUrl(url);
-      } else if (!url) {
-        this._showError('Please enter a URL');
       }
     };
 
@@ -139,7 +83,7 @@ export class Dropzone {
     // File input
     const input = wrap.querySelector<HTMLInputElement>('#book-file-input')!;
     input.addEventListener('change', () => {
-      if (input.files?.[0]) this._handleFile(input.files[0]);
+      if (input.files?.[0]) this.callbacks.onFile(input.files[0]);
     });
 
     // Drag and drop
@@ -153,41 +97,23 @@ export class Dropzone {
       e.preventDefault();
       drop.classList.remove('dragover');
       const file = e.dataTransfer?.files?.[0];
-      const isEpub = file?.name.toLowerCase().endsWith('.epub');
-      const isPdf = file?.name.toLowerCase().endsWith('.pdf');
-      const isDocx = file?.name.toLowerCase().endsWith('.docx');
-      if (file && (isEpub || isPdf || isDocx)) this._handleFile(file);
-      else this._showError('Please drop a valid .epub, .pdf or .docx file');
+      if (file) this.callbacks.onFile(file);
     });
 
     return wrap;
   }
 
-  private _handleFile(file: File): void {
-    this.callbacks.onFile(file);
-  }
-
-  private _showError(msg: string): void {
-    const existing = this.el.querySelector('.dropzone-error');
-    existing?.remove();
-    const err = document.createElement('p');
-    err.className = 'dropzone-error';
-    err.textContent = msg;
-    this.el.querySelector('#dropzone-drop')?.after(err);
-    setTimeout(() => err.remove(), 10000);
-  }
-
   showLoading(filename: string): void {
-    const drop = this.el.querySelector('#dropzone-drop') as HTMLElement;
-    drop.innerHTML = `
-      <div class="dropzone-drop-inner">
+    const modal = this.el;
+    modal.innerHTML = `
+      <div class="import-loading">
         <div class="loading-spinner"></div>
-        <p class="dropzone-drop-label">Opening <em>${filename}</em>…</p>
+        <p>Parsing <em>${filename}</em></p>
       </div>
     `;
   }
 
   destroy(): void {
-    this.el.remove();
+    this.overlay.remove();
   }
 }
