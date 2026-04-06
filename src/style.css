@@ -1135,8 +1135,36 @@ a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px
 
 .anno-note {
   border-bottom: 2px dashed var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  padding: 0 1px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  cursor: help;
+  position: relative;
+}
+
+.anno-note:hover::after {
+  content: attr(data-note);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  background: var(--surface-card);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  white-space: pre-wrap;
+  min-width: 200px;
+  max-width: 300px;
+  z-index: 100;
+  border: 1px solid var(--border);
+  animation: toolFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes toolFadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 /* ─── Night theme overrides ─────────────────────────────────────────────────── */

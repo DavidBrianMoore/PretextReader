@@ -12,11 +12,6 @@ const HR_HEIGHT = 32;
 const CODE_PADDING = 24;
 
 // ─── Height Estimation via Pretext ────────────────────────────────────────────
-//
-// prepare() is width-independent: run it once per (text, font) pair.
-// layout() is the cheap arithmetic-only resize pass — no DOM access, no reflow.
-// This is the core perf win: we can predict every paragraph's height without
-// touching the DOM, enabling a fully virtualized scroll.
 
 interface PreparedCache {
   prepared: ReturnType<typeof prepare>;
@@ -42,10 +37,6 @@ function runsToPlainText(runs: TextRun[]): string {
   return runs.map(r => r.text).join('');
 }
 
-/**
- * Predict height of a block at the given column width.
- * Uses pretext prepare() + layout() — zero DOM access.
- */
 export function predictBlockHeight(
   block: ContentBlock,
   columnWidth: number,
@@ -75,7 +66,6 @@ export function predictBlockHeight(
     return height + HEADING_GAP + PARAGRAPH_GAP;
   }
 
-  // paragraph / blockquote
   const font = fontString(settings);
   const text = runsToPlainText(block.runs ?? []);
   const effectiveWidth = block.type === 'blockquote' ? columnWidth - 40 : columnWidth;
@@ -83,12 +73,6 @@ export function predictBlockHeight(
   const { height } = layout(prepared, effectiveWidth, settings.lineHeight);
   return height + PARAGRAPH_GAP;
 }
-
-// ─── DOM Rendering ────────────────────────────────────────────────────────────
-//
-// DOM mode: we render styled <span> runs and let CSS handle line wrapping.
-// pretext's value here is entirely in predictBlockHeight() above — it gives us
-// accurate paragraph heights without any DOM reads, powering the virtual scroller.
 
 export function renderBlock(
   block: ContentBlock,
@@ -100,8 +84,6 @@ export function renderBlock(
   el.innerHTML = '';
   el.classList.add('block', `block-${block.type}`);
 
-  // blockquote: only the inner <blockquote> element should carry the styled class
-  // to avoid the border-left firing on both the outer wrapper AND the inner element
   if (block.type === 'blockquote') {
     el.classList.remove(`block-${block.type}`);
   }
@@ -120,13 +102,10 @@ export function renderBlock(
     img.alt = block.alt ?? '';
     img.className = 'block-image';
     img.loading = 'lazy';
-    
-    // If no alt text, treat as decorative
     if (!block.alt) {
       img.setAttribute('aria-hidden', 'true');
       el.classList.add('speechify-ignore');
     }
-    
     el.appendChild(img);
     return Math.min(500, columnWidth * 0.8) + PARAGRAPH_GAP;
   }
@@ -150,7 +129,6 @@ export function renderBlock(
     heading.className = `block-heading level-${level}`;
     renderRuns(block.runs ?? [], heading, annotations);
     el.appendChild(heading);
-
     const font = headingFontString(level, settings);
     const text = runsToPlainText(block.runs ?? []);
     const lh = Math.round(settings.lineHeight * (level <= 2 ? 1.3 : 1.1));
@@ -164,7 +142,6 @@ export function renderBlock(
     bq.className = 'block-blockquote';
     renderRuns(block.runs ?? [], bq, annotations);
     el.appendChild(bq);
-
     const font = fontString(settings);
     const text = runsToPlainText(block.runs ?? []);
     const prepared = getPrepared(block.id, text, font);
@@ -172,12 +149,10 @@ export function renderBlock(
     return height + PARAGRAPH_GAP * 2 + 8;
   }
 
-  // paragraph — render runs as inline spans, CSS handles wrapping
   const p = document.createElement('p');
   p.className = 'block-paragraph';
   renderRuns(block.runs ?? [], p, annotations);
   el.appendChild(p);
-
   const font = fontString(settings);
   const text = runsToPlainText(block.runs ?? []);
   const prepared = getPrepared(block.id, text, font);
@@ -185,11 +160,6 @@ export function renderBlock(
   return height + PARAGRAPH_GAP;
 }
 
-// ─── Inline Run Rendering ─────────────────────────────────────────────────────
-
-/**
- * Render inline runs as DOM nodes with CSS bold/italic/link styling and annotations.
- */
 function renderRuns(runs: TextRun[], container: HTMLElement, annotations?: Annotation[]): void {
   let blockOffset = 0;
   for (const run of runs) {
@@ -197,7 +167,6 @@ function renderRuns(runs: TextRun[], container: HTMLElement, annotations?: Annot
     const runText = run.text;
     const runEnd = blockOffset + runText.length;
 
-    // Find annotations that intersect this run
     const relevant = (annotations || []).filter(a => {
         const start = a.startOffset ?? 0;
         const end = a.endOffset ?? 0;
@@ -207,25 +176,25 @@ function renderRuns(runs: TextRun[], container: HTMLElement, annotations?: Annot
     if (relevant.length === 0) {
         container.appendChild(createRunNode(run));
     } else {
-        // Break run into segments based on annotations
-        // For simplicity tonight, we'll just handle one annotation per segment
-        // A more robust implementation would sort and slice multiple overlaps
         const anno = relevant[0];
         const aStart = Math.max(blockOffset, anno.startOffset ?? 0);
         const aEnd = Math.min(runEnd, anno.endOffset ?? 0);
 
-        // Before
         if (aStart > blockOffset) {
             container.appendChild(createRunNode({ ...run, text: runText.substring(0, aStart - blockOffset) }));
         }
-        // Annotated segment
+
         const mark = document.createElement('mark');
         mark.className = `anno-${anno.type}`;
         if (anno.color) mark.style.backgroundColor = anno.color;
         mark.dataset.annoId = anno.id;
+        if (anno.note) {
+            mark.setAttribute('title', anno.note);
+            mark.setAttribute('data-note', anno.note);
+        }
         mark.appendChild(createRunNode({ ...run, text: runText.substring(aStart - blockOffset, aEnd - blockOffset) }));
         container.appendChild(mark);
-        // After
+
         if (aEnd < runEnd) {
             container.appendChild(createRunNode({ ...run, text: runText.substring(aEnd - blockOffset) }));
         }
@@ -238,11 +207,9 @@ function createRunNode(run: TextRun): Node {
   if (run.bold || run.italic || run.href) {
     const tag = run.href ? 'a' : 'span';
     const span = document.createElement(tag);
-    const isInternal = run.href?.startsWith('#');
-
     if (run.href) {
       (span as HTMLAnchorElement).href = run.href;
-      if (!isInternal) {
+      if (!run.href.startsWith('#')) {
         (span as HTMLAnchorElement).target = '_blank';
         (span as HTMLAnchorElement).rel = 'noopener noreferrer';
       } else {
