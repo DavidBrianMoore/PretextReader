@@ -8,6 +8,7 @@ export interface ToolbarCallbacks {
   onFontSizeChange: (delta: number) => void;
   onShare: () => void;
   onShareText: () => void;
+  onSearch: () => void;
   onClose: () => void;
 }
 
@@ -60,6 +61,17 @@ export class Toolbar {
 
     left.appendChild(closeBtn);
     left.appendChild(tocBtn);
+
+    const searchBtn = document.createElement('button');
+    searchBtn.className = 'toolbar-btn';
+    searchBtn.id = 'toolbar-search-btn';
+    searchBtn.setAttribute('aria-label', 'Search book');
+    searchBtn.title = 'Search book';
+    searchBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>`;
+    searchBtn.addEventListener('click', () => this.callbacks.onSearch());
+    left.appendChild(searchBtn);
 
     // — Right group —
     const right = document.createElement('div');

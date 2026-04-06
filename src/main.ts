@@ -1,4 +1,5 @@
 import './style.css';
+import pkg from '../package.json';
 import { Dropzone } from './ui/Dropzone';
 import { ReaderView } from './reader/ReaderView';
 import { parseEpub } from './epub/parser';
@@ -6,11 +7,19 @@ import { parsePdf } from './pdf/pdfParser';
 import { parseDocx } from './docx/docxParser';
 import { applyTheme, applyFont, DEFAULT_SETTINGS, THEMES } from './reader/theme';
 import type { Book } from './epub/types';
+import { LibraryView } from './ui/LibraryView';
+import { libraryStore } from './db/LibraryStore';
+import type { SavedBook } from './db/LibraryStore';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
+const footer = document.getElementById('footer')!;
+footer.innerHTML = `<div class="footer-version">v${pkg.version}</div>`;
+
 let currentReader: ReaderView | null = null;
 let dropzone: Dropzone | null = null;
+let libraryView: LibraryView | null = null;
+let currentBookId: string | null = null;
 const appRoot = document.getElementById('app')!;
 
 // Handle browser back button
@@ -28,9 +37,32 @@ applyFont(DEFAULT_SETTINGS.font, DEFAULT_SETTINGS.fontSize, DEFAULT_SETTINGS.lin
 
 // ─── Views ────────────────────────────────────────────────────────────────────
 
+async function showLibrary(): Promise<void> {
+  currentReader?.destroy();
+  currentReader = null;
+  dropzone?.destroy();
+  dropzone = null;
+  currentBookId = null;
+
+  footer.style.display = 'block';
+
+  if (!libraryView) {
+    libraryView = new LibraryView(appRoot, {
+      onSelectBook: (savedBook) => openSavedBook(savedBook),
+      onUploadNew: () => showDropzone(),
+    });
+  } else {
+    libraryView.render();
+  }
+}
+
 function showDropzone(): void {
   currentReader?.destroy();
   currentReader = null;
+  footer.style.display = 'block';
+  libraryView?.destroy();
+  libraryView = null;
+  currentBookId = null;
 
   if (!dropzone) {
     dropzone = new Dropzone(appRoot, {
@@ -48,9 +80,16 @@ async function handleFile(file: File): Promise<void> {
     const isPdf = file.name.toLowerCase().endsWith('.pdf');
     const isDocx = file.name.toLowerCase().endsWith('.docx');
     const book: Book = isDocx ? await parseDocx(file) : isPdf ? await parsePdf(file) : await parseEpub(file);
+    
+    // Save to library immediately
+    const id = await libraryStore.saveBook(book);
+    
     dropzone?.destroy();
     dropzone = null;
-    openBook(book);
+    
+    const saved = await libraryStore.getBook(id);
+    if (saved) openSavedBook(saved);
+    else openBook(book); // fallback
   } catch (err) {
     console.error('Failed to parse book:', err);
     dropzone?.destroy();
@@ -151,7 +190,22 @@ async function handleUrl(url: string, redirectCount = 0): Promise<void> {
   }
 }
 
-function openBook(book: Book): void {
+async function openSavedBook(saved: SavedBook): Promise<void> {
+  currentBookId = saved.id;
+  const book: Book = {
+    metadata: saved.metadata,
+    chapters: saved.chapters,
+    toc: saved.toc,
+  };
+  
+  openBook(book, saved.lastReadBlockId);
+}
+
+function openBook(book: Book, startBlockId?: string): void {
+  libraryView?.destroy();
+  libraryView = null;
+  footer.style.display = 'none';
+  
   document.title = `${book.metadata.title} — Pretext Reader`;
   
   // Add a history entry for the reader
@@ -163,7 +217,18 @@ function openBook(book: Book): void {
     if (history.state?.reading) {
       history.back();
     }
-  });
+  }, undefined, (blockId: string, top: number) => {
+    if (currentBookId) {
+      libraryStore.updateProgress(currentBookId, blockId, top);
+    }
+  }, currentBookId || undefined);
+
+  if (startBlockId) {
+    // Initial scroll after a short delay to let virtual layout settle
+    setTimeout(() => {
+        currentReader?.scrollToBlock(startBlockId, false);
+    }, 100);
+  }
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -175,6 +240,18 @@ if (urlParam) {
   showDropzone(); // Create it so handleUrl can update it
   handleUrl(urlParam);
 } else {
-  showDropzone();
+  showLibrary();
+}
+
+// ─── Service Worker ──────────────────────────────────────────────────────────
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      console.log('SW registered: ', reg);
+    }).catch(err => {
+      console.log('SW registration failed: ', err);
+    });
+  });
 }
 

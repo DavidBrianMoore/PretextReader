@@ -1,5 +1,6 @@
 import { prepare, layout } from '@chenglou/pretext';
 import type { ContentBlock, TextRun } from '../epub/types';
+import type { Annotation } from '../db/LibraryStore';
 import type { ReaderSettings } from './theme';
 import { fontString, headingFontString } from './theme';
 
@@ -94,6 +95,7 @@ export function renderBlock(
   el: HTMLElement,
   columnWidth: number,
   settings: ReaderSettings,
+  annotations?: Annotation[],
 ): number {
   el.innerHTML = '';
   el.classList.add('block', `block-${block.type}`);
@@ -146,7 +148,7 @@ export function renderBlock(
     const level = block.level ?? 2;
     const heading = document.createElement(`h${level}`) as HTMLHeadingElement;
     heading.className = `block-heading level-${level}`;
-    renderRuns(block.runs ?? [], heading);
+    renderRuns(block.runs ?? [], heading, annotations);
     el.appendChild(heading);
 
     const font = headingFontString(level, settings);
@@ -160,7 +162,7 @@ export function renderBlock(
   if (block.type === 'blockquote') {
     const bq = document.createElement('blockquote');
     bq.className = 'block-blockquote';
-    renderRuns(block.runs ?? [], bq);
+    renderRuns(block.runs ?? [], bq, annotations);
     el.appendChild(bq);
 
     const font = fontString(settings);
@@ -173,7 +175,7 @@ export function renderBlock(
   // paragraph — render runs as inline spans, CSS handles wrapping
   const p = document.createElement('p');
   p.className = 'block-paragraph';
-  renderRuns(block.runs ?? [], p);
+  renderRuns(block.runs ?? [], p, annotations);
   el.appendChild(p);
 
   const font = fontString(settings);
@@ -186,34 +188,72 @@ export function renderBlock(
 // ─── Inline Run Rendering ─────────────────────────────────────────────────────
 
 /**
- * Render inline runs as DOM nodes with CSS bold/italic/link styling.
- * CSS word-wrapping handles line breaking — pretext covers height prediction.
+ * Render inline runs as DOM nodes with CSS bold/italic/link styling and annotations.
  */
-function renderRuns(runs: TextRun[], container: HTMLElement): void {
+function renderRuns(runs: TextRun[], container: HTMLElement, annotations?: Annotation[]): void {
+  let blockOffset = 0;
   for (const run of runs) {
     if (!run.text) continue;
+    const runText = run.text;
+    const runEnd = blockOffset + runText.length;
 
-    if (run.bold || run.italic || run.href) {
-      const tag = run.href ? 'a' : 'span';
-      const span = document.createElement(tag);
-      const isInternal = run.href?.startsWith('#');
+    // Find annotations that intersect this run
+    const relevant = (annotations || []).filter(a => {
+        const start = a.startOffset ?? 0;
+        const end = a.endOffset ?? 0;
+        return start < runEnd && end > blockOffset;
+    });
 
-      if (run.href) {
-        (span as HTMLAnchorElement).href = run.href;
-        if (!isInternal) {
-          (span as HTMLAnchorElement).target = '_blank';
-          (span as HTMLAnchorElement).rel = 'noopener noreferrer';
-        } else {
-          span.classList.add('internal-link');
-          span.setAttribute('data-internal-link', 'true');
-        }
-      }
-      if (run.bold)   span.classList.add('run-bold');
-      if (run.italic) span.classList.add('run-italic');
-      span.textContent = run.text;
-      container.appendChild(span);
+    if (relevant.length === 0) {
+        container.appendChild(createRunNode(run));
     } else {
-      container.appendChild(document.createTextNode(run.text));
+        // Break run into segments based on annotations
+        // For simplicity tonight, we'll just handle one annotation per segment
+        // A more robust implementation would sort and slice multiple overlaps
+        const anno = relevant[0];
+        const aStart = Math.max(blockOffset, anno.startOffset ?? 0);
+        const aEnd = Math.min(runEnd, anno.endOffset ?? 0);
+
+        // Before
+        if (aStart > blockOffset) {
+            container.appendChild(createRunNode({ ...run, text: runText.substring(0, aStart - blockOffset) }));
+        }
+        // Annotated segment
+        const mark = document.createElement('mark');
+        mark.className = `anno-${anno.type}`;
+        if (anno.color) mark.style.backgroundColor = anno.color;
+        mark.dataset.annoId = anno.id;
+        mark.appendChild(createRunNode({ ...run, text: runText.substring(aStart - blockOffset, aEnd - blockOffset) }));
+        container.appendChild(mark);
+        // After
+        if (aEnd < runEnd) {
+            container.appendChild(createRunNode({ ...run, text: runText.substring(aEnd - blockOffset) }));
+        }
     }
+    blockOffset += runText.length;
   }
+}
+
+function createRunNode(run: TextRun): Node {
+  if (run.bold || run.italic || run.href) {
+    const tag = run.href ? 'a' : 'span';
+    const span = document.createElement(tag);
+    const isInternal = run.href?.startsWith('#');
+
+    if (run.href) {
+      (span as HTMLAnchorElement).href = run.href;
+      if (!isInternal) {
+        (span as HTMLAnchorElement).target = '_blank';
+        (span as HTMLAnchorElement).rel = 'noopener noreferrer';
+      } else {
+        span.classList.add('internal-link');
+        span.setAttribute('data-internal-link', 'true');
+      }
+    }
+    if (run.bold) span.classList.add('run-bold');
+    if (run.italic) span.classList.add('run-italic');
+    span.textContent = run.text;
+    return span;
+  }
+  return document.createTextNode(run.text);
 }

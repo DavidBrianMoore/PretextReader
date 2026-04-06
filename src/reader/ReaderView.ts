@@ -4,6 +4,10 @@ import { THEMES, applyTheme, applyFont, DEFAULT_SETTINGS } from './theme';
 import { VirtualScroller } from './VirtualScroller';
 import { Toolbar } from '../ui/Toolbar';
 import { TableOfContents } from '../ui/TableOfContents';
+import { SearchView } from '../ui/SearchView';
+import { AnnotationManager } from './AnnotationManager';
+import type { Annotation } from '../db/LibraryStore';
+import { libraryStore } from '../db/LibraryStore';
 
 export class ReaderView {
   private el: HTMLElement;
@@ -12,14 +16,20 @@ export class ReaderView {
   private scroller!: VirtualScroller;
   private toolbar!: Toolbar;
   private toc!: TableOfContents;
+  private search!: SearchView;
+  private annos!: AnnotationManager;
   private currentChapterIndex = 0;
   private allBlocks: ContentBlock[] = [];
   private onClose: () => void;
+  private bookId?: string; // used for persistence
+  private onProgress?: (blockId: string, top: number) => void;
   private _onWindowScroll: () => void = () => {};
 
-  constructor(container: HTMLElement, book: Book, onClose: () => void, settings?: ReaderSettings) {
+  constructor(container: HTMLElement, book: Book, onClose: () => void, settings?: ReaderSettings, onProgress?: (blockId: string, top: number) => void, bookId?: string) {
     this.book = book;
     this.onClose = onClose;
+    this.bookId = bookId;
+    this.onProgress = onProgress;
     this.settings = settings ?? { ...DEFAULT_SETTINGS };
 
     this.el = document.createElement('div');
@@ -55,8 +65,33 @@ export class ReaderView {
       onFontSizeChange: (d) => this._changeFontSize(d),
       onShare: () => this._share(),
       onShareText: () => this._shareText(),
+      onSearch: () => this.search.toggle(),
       onClose: () => this._close(),
     }, this.settings);
+
+    // Build Search
+    this.search = new SearchView(book, {
+        onNavigate: (blockId) => this.scrollToBlock(blockId),
+    });
+
+    // Build Annotations
+    this.annos = new AnnotationManager(scrollContainer, {
+        onAdd: async (anno) => {
+            if (!this.bookId) return;
+            const fullAnno: Annotation = {
+                ...anno,
+                id: Math.random().toString(36).substring(2),
+                createdAt: Date.now()
+            };
+            await libraryStore.addAnnotation(this.bookId, fullAnno);
+            this.refreshAnnotations();
+        },
+        onDelete: async (id) => {
+            if (!this.bookId) return;
+            await libraryStore.deleteAnnotation(this.bookId, id);
+            this.refreshAnnotations();
+        }
+    });
 
     // Flatten all blocks across chapters
     this.allBlocks = book.chapters.flatMap(ch => ch.blocks);
@@ -67,10 +102,14 @@ export class ReaderView {
     });
 
     this.scroller.setBlocks(this.allBlocks);
+    this.refreshAnnotations();
     this._updateTocHighlight();
 
-    // Track scrolling for TOC highlight
-    this._onWindowScroll = () => this._updateTocHighlight();
+    // Track scrolling for TOC highlight and progress
+    this._onWindowScroll = () => {
+      this._updateTocHighlight();
+      this._reportProgress();
+    };
     window.addEventListener('scroll', this._onWindowScroll, { passive: true });
 
     // Keyboard shortcuts
@@ -80,6 +119,12 @@ export class ReaderView {
   private _onKeyDown = (e: KeyboardEvent): void => {
     if (e.key === 'Escape') this._close();
     if (e.key === 't' || e.key === 'T') this.toc.toggle();
+    if (e.key === 'f' || e.key === 'F') {
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            this.search.toggle(true);
+        }
+    }
   };
 
   private _updateTocHighlight(): void {
@@ -92,6 +137,26 @@ export class ReaderView {
     if (ci >= 0 && ci !== this.currentChapterIndex) {
       this.currentChapterIndex = ci;
       this.toc.setActiveChapter(ci);
+    }
+  }
+
+  private _reportProgress(): void {
+    if (!this.onProgress) return;
+    const blockId = this.scroller.getCurrentBlockId();
+    if (blockId) {
+      this.onProgress(blockId, window.scrollY);
+    }
+  }
+
+  public scrollToBlock(blockId: string, useOffset = true): void {
+    this.scroller.scrollToBlock(blockId, useOffset);
+  }
+
+  async refreshAnnotations(): Promise<void> {
+    if (!this.bookId) return;
+    const saved = await libraryStore.getBook(this.bookId);
+    if (saved && saved.annotations) {
+        this.scroller.setAnnotations(saved.annotations);
     }
   }
 
@@ -201,6 +266,8 @@ export class ReaderView {
     this.scroller.destroy();
     this.toolbar.destroy();
     this.toc.destroy();
+    this.search.destroy();
+    this.annos.destroy();
     this.el.remove();
   }
 }

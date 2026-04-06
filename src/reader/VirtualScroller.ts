@@ -1,4 +1,5 @@
 import type { ContentBlock } from '../epub/types';
+import type { Annotation } from '../db/LibraryStore';
 import type { ReaderSettings } from './theme';
 import { predictBlockHeight, renderBlock, clearPreparedCache } from './ParagraphRenderer';
 
@@ -39,6 +40,7 @@ export class VirtualScroller {
   private columnWidth: number = 0;
   private viewportHeight: number = 0;
   private scrollTop: number = 0;
+  private annotations: Annotation[] = [];
   private buffer = 800; // will be updated to 3× viewport on first layout
   private ttsBuffer = 3; // multiplier: keep 3× viewport rendered above/below
   private renderedRange: [number, number] = [-1, -1]; // [startIdx, endIdx]
@@ -139,6 +141,21 @@ export class VirtualScroller {
       window.scrollTo({ left: 0, top: 0, behavior: 'instant' as any });
       this._render();
     });
+  }
+
+  setAnnotations(annos: Annotation[]): void {
+    this.annotations = annos;
+    // Rerender visible blocks to show/hide highlights
+    const [start, end] = this.renderedRange;
+    for (let i = start; i <= end; i++) {
+        if (i < 0) continue;
+        const entry = this.entries[i];
+        if (entry.el) {
+            // Recapture the element and force a fresh render
+            this._unmount(i);
+            this._mount(i);
+        }
+    }
   }
 
   updateSettings(settings: ReaderSettings): void {
@@ -478,8 +495,10 @@ export class VirtualScroller {
     el.style.width = `${this.columnWidth}px`;
     el.style.left = '50%';
     el.style.transform = 'translateX(-50%)';
+    el.setAttribute('data-block-id', entry.block.id);
 
-    renderBlock(entry.block, el, this.columnWidth, this.settings);
+    const blockAnnots = this.annotations.filter(a => a.blockId === entry.block.id);
+    renderBlock(entry.block, el, this.columnWidth, this.settings, blockAnnots);
 
     // ARIA: label block by type for screen readers + TTS
     const b = entry.block;
