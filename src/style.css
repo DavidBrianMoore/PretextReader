@@ -1081,6 +1081,44 @@ a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px
   color: var(--text);
 }
 
+.anno-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.anno-actions.hidden { display: none; }
+
+.anno-note-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 8px 2px 4px;
+}
+
+.anno-note-input.hidden { display: none; }
+
+.anno-note-input input {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  width: 140px;
+  outline: none;
+}
+
+.anno-save-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
 .anno-btn .swatch {
   width: 14px;
   height: 14px;
