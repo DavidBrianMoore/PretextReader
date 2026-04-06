@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pretext-v1.0.18';
+const CACHE_NAME = 'pretext-v1.0.19';
 const ASSETS = [
   '/',
   '/index.html',
@@ -8,19 +8,28 @@ const ASSETS = [
   'https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600&family=Source+Code+Pro:wght@400;500&display=swap'
 ];
 
-self.addEventListener('install', (e) => {
+self.addEventListener('install', (event) => {
   self.skipWaiting();
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS);
+    })
   );
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil(clients.claim());
-  e.waitUntil(
-    caches.keys().then((keys) => {
-        return Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)));
-    })
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    (async () => {
+      await clients.claim();
+      const keys = await caches.keys();
+      await Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
+          }
+        })
+      );
+    })()
   );
 });
 

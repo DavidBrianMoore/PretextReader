@@ -207,8 +207,18 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/' });
   });
+
+  // Atomic Reload: When the new Service Worker takes over, refresh the page
+  // to ensure the user is on the latest code immediately.
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
 }
 
+// Global update check helper
 (window as any).requestSwUpdate = async () => {
   if (!('serviceWorker' in navigator)) return;
   const registration = await navigator.serviceWorker.getRegistration();
@@ -217,8 +227,10 @@ if ('serviceWorker' in navigator) {
   }
 };
 
+// Polling for updates every 5 minutes while active
 setInterval(() => (window as any).requestSwUpdate(), 5 * 60 * 1000);
 
+// Check on visibility change (when tab is focused/re-activated)
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     (window as any).requestSwUpdate();
