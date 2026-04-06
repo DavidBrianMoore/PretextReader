@@ -1081,12 +1081,23 @@ a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px
   color: var(--text);
 }
 
+.anno-colors, .anno-tools {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
 .anno-actions {
   display: flex;
-  gap: 8px;
+  gap: 16px;
+  align-items: center;
 }
 
 .anno-actions.hidden { display: none; }
+
+.anno-btn.delete-btn:hover {
+  background: rgba(239, 83, 80, 0.1);
+}
 
 .anno-note-input {
   display: flex;

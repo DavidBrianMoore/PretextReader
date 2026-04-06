@@ -26,12 +26,20 @@ export class AnnotationManager {
     el.className = 'anno-popover hidden';
     el.innerHTML = `
       <div class="anno-actions">
-        <button class="anno-btn highlight" data-type="highlight" title="Highlight">
-          <div class="swatch" style="background:#ffeb3b"></div>
-        </button>
-        <button class="anno-btn note-trigger" data-type="note-trigger" title="Add Note">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        </button>
+        <div class="anno-colors">
+          <button class="anno-btn color-btn" data-color="#ffeb3b" title="Yellow"><div class="swatch" style="background:#ffeb3b"></div></button>
+          <button class="anno-btn color-btn" data-color="#ccff90" title="Green"><div class="swatch" style="background:#ccff90"></div></button>
+          <button class="anno-btn color-btn" data-color="#f8bbd0" title="Pink"><div class="swatch" style="background:#f8bbd0"></div></button>
+          <button class="anno-btn color-btn" data-color="#b3e5fc" title="Blue"><div class="swatch" style="background:#b3e5fc"></div></button>
+        </div>
+        <div class="anno-tools">
+          <button class="anno-btn note-trigger" data-type="note-trigger" title="Add Note">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="anno-btn delete-btn hidden" id="anno-delete" title="Delete">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef5350" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
       </div>
       <div class="anno-note-input hidden">
         <input type="text" placeholder="Type your note..." id="anno-note-text" />
@@ -39,10 +47,13 @@ export class AnnotationManager {
       </div>
     `;
 
-    el.querySelector('.highlight')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this._handleAction('highlight');
+    el.querySelectorAll('.color-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const color = (btn as HTMLElement).dataset.color || '#ffeb3b';
+        this._handleAction('highlight', color);
+      });
     });
 
     el.querySelector('.note-trigger')?.addEventListener('click', (e) => {
@@ -51,10 +62,10 @@ export class AnnotationManager {
       this._showNoteInput();
     });
 
-    el.querySelector('#anno-save-note')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this._handleAction('note');
+    el.querySelector('#anno-delete')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this._handleDelete();
     });
 
     el.querySelector('#anno-note-text')?.addEventListener('keydown', (e) => {
@@ -113,28 +124,56 @@ export class AnnotationManager {
 
   private _onMouseDown = (e: MouseEvent): void => {
       if (this.popover.contains(e.target as Node)) return;
+      
+      const target = e.target as HTMLElement;
+      const annoMark = target.closest('mark[data-anno-id]') as HTMLElement;
+      
+      if (annoMark) {
+          e.preventDefault();
+          e.stopPropagation();
+          const id = annoMark.getAttribute('data-anno-id')!;
+          const blockId = target.closest('.vscroll-block')?.getAttribute('data-block-id');
+          if (blockId) {
+            this.currentSelection = {
+              blockId,
+              text: annoMark.innerText,
+              startOffset: 0, // Not strictly needed for delete
+              endOffset: 0,
+              existingId: id
+            } as any;
+            this.popover.querySelector('#anno-delete')?.classList.remove('hidden');
+            this._showPopover(annoMark.getBoundingClientRect());
+          }
+          return;
+      }
+
       this._hidePopover();
   };
 
   private _showPopover(rect: DOMRect): void {
     this.popover.classList.remove('hidden');
-    const top = rect.top + window.scrollY - 48;
+    const top = rect.top + window.scrollY - 54;
     const left = rect.left + window.scrollX + rect.width / 2 - this.popover.offsetWidth / 2;
     this.popover.style.top = `${top}px`;
     this.popover.style.left = `${left}px`;
   }
 
-  private _handleAction(type: 'highlight' | 'note'): void {
+  private _handleAction(type: 'highlight' | 'note', color?: string): void {
     if (!this.currentSelection) return;
     
-    const sel = this.currentSelection;
+    const sel = this.currentSelection as any;
     const noteVal = (this.popover.querySelector('#anno-note-text') as HTMLInputElement).value;
+
+    // If editing existing, delete old one first
+    if (sel.existingId) {
+        this.callbacks.onDelete(sel.existingId);
+    }
 
     this.callbacks.onAdd({
         blockId: sel.blockId,
         type,
         text: sel.text,
-        color: type === 'highlight' ? '#ffeb3b' : undefined,
+        color: color || (type === 'highlight' ? '#ffeb3b' : undefined),
         note: type === 'note' ? noteVal : undefined,
         startOffset: sel.startOffset,
         endOffset: sel.endOffset
@@ -142,6 +181,14 @@ export class AnnotationManager {
 
     this._hidePopover();
     window.getSelection()?.removeAllRanges();
+  }
+
+  private _handleDelete(): void {
+    const sel = this.currentSelection as any;
+    if (sel?.existingId) {
+        this.callbacks.onDelete(sel.existingId);
+    }
+    this._hidePopover();
   }
 
   private _showNoteInput(): void {
@@ -157,6 +204,7 @@ export class AnnotationManager {
     this.popover.classList.add('hidden');
     this.popover.querySelector('.anno-actions')?.classList.remove('hidden');
     this.popover.querySelector('.anno-note-input')?.classList.add('hidden');
+    this.popover.querySelector('#anno-delete')?.classList.add('hidden');
     this.currentSelection = null;
   }
 
