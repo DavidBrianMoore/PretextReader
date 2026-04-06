@@ -3,8 +3,12 @@ import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import type { Book, Chapter, BookMetadata, TocEntry, ContentBlock } from '../epub/types';
 
 // Configure PDF.js worker
-// Using Vite's ?url suffix to bundle the worker worker locally for maximum stability
-pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+try {
+  pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+} catch (e) {
+  // Fallback to CDN if bundling is problematic in some environments
+  pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.6.205/build/pdf.worker.min.mjs';
+}
 
 export async function parsePdf(file: File): Promise<Book> {
   const arrayBuffer = await file.arrayBuffer();
@@ -27,7 +31,8 @@ export async function parsePdf(file: File): Promise<Book> {
   let lastPagePendingText = '';
 
   for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
+    try {
+      const page = await pdf.getPage(i);
     const viewport = page.getViewport({ scale: 1.0 });
     const pageHeight = viewport.height;
     const textContent = await page.getTextContent();
@@ -186,7 +191,11 @@ export async function parsePdf(file: File): Promise<Book> {
       depth: 0,
       children: []
     });
+  } catch (pageErr) {
+    console.error(`Failed to parse page ${i}:`, pageErr);
+    continue;
   }
+}
 
   return {
     metadata: bookMetadata,

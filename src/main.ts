@@ -127,16 +127,26 @@ async function handleUrl(url: string, redirectCount = 0): Promise<void> {
     showDropzone();
     
     setTimeout(() => {
-      const isCors = err instanceof TypeError && (err.message.includes('fetch') || err.message.includes('NetworkError'));
-      const msg = isCors
-        ? 'CORS Error: The remote server at this URL does not allow cross-origin requests.'
-        : `Failed to open: ${(err as Error).message || 'Unknown error'}`;
+      const errorMsg = (err as Error).message || 'Unknown error';
+      const isMixedContent = window.location.protocol === 'https:' && url.startsWith('http:');
+      const isCors = err instanceof TypeError && (
+        errorMsg.includes('fetch') || 
+        errorMsg.includes('NetworkError') || 
+        errorMsg.includes('Failed to fetch')
+      );
+      
+      let msg = `Failed to load: ${errorMsg}`;
+      if (isMixedContent) {
+        msg = 'Security Error: "http" links are blocked on "https" sites. Please try an "https" link or upload the file manually.';
+      } else if (isCors) {
+        msg = 'Network Error: The remote server doesn\'t allow direct links from browsers. Try downloading and uploading the file instead.';
+      }
         
       const errEl = document.createElement('div');
       errEl.className = 'parse-error';
       errEl.textContent = msg;
       appRoot.prepend(errEl);
-      setTimeout(() => errEl.remove(), 6000);
+      setTimeout(() => errEl.remove(), 7000);
     }, 100);
   }
 }

@@ -130,7 +130,7 @@ export class Dropzone {
     err.className = 'dropzone-error';
     err.textContent = msg;
     this.el.querySelector('#dropzone-drop')?.after(err);
-    setTimeout(() => err.remove(), 3000);
+    setTimeout(() => err.remove(), 10000);
   }
 
   showLoading(filename: string): void {
