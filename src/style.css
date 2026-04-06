@@ -12,10 +12,12 @@
   --font-body: 'Lora', Georgia, serif;
   --font-ui: 'Inter', system-ui, sans-serif;
   --radius: 14px;
+  --radius-md: 10px;
   --radius-sm: 8px;
   --shadow: 0 4px 20px rgba(26, 22, 20, 0.05);
   --shadow-lg: 0 16px 48px rgba(26, 22, 20, 0.12);
   --transition: 300ms cubic-bezier(0.23, 1, 0.32, 1);
+  --surface-card: #ffffff;
 }
 
 /* ─── Reset ──────────────────────────────────────────────────────────────────── */
@@ -1437,7 +1439,7 @@ a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px
   left: 50%;
   transform: translateX(-50%);
   margin-bottom: 8px;
-  background: var(--surface-card);
+  background: #ffffff;
   color: var(--text);
   padding: 8px 12px;
   border-radius: var(--radius-md);
@@ -1817,6 +1819,148 @@ a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px
 .toc-data-delete:hover {
   color: #c0392b;
   background: color-mix(in srgb, #c0392b 10%, transparent);
+}
+
+/* ─── Notebook & Unified Annotations ────────────────────────────────────────── */
+.toc-tabs {
+  display: flex;
+  padding: 0 16px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.toc-tab {
+  flex: 1;
+  padding: 12px 0;
+  background: none;
+  border: none;
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  position: relative;
+  transition: color var(--transition);
+}
+
+.toc-tab::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transition: transform var(--transition);
+}
+
+.toc-tab.active {
+  color: var(--accent);
+}
+
+.toc-tab.active::after {
+  transform: scaleX(1);
+}
+
+.toc-data-item {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+  gap: 12px;
+}
+
+.toc-data-item:hover {
+  background: var(--accent-light);
+}
+
+.toc-data-content {
+  cursor: pointer;
+  flex: 1;
+}
+
+.toc-data-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.toc-data-type {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  background: var(--accent-light);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.toc-data-chapter {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.toc-data-quote {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--text);
+  border-left: 3px solid #ffeb3b;
+  padding-left: 12px;
+  font-style: italic;
+}
+
+.toc-data-note-text {
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--surface);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+.toc-data-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.toc-data-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all var(--transition);
+}
+
+.toc-data-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-light);
+}
+
+.toc-data-btn.delete-btn:hover {
+  border-color: #ef5350;
+  color: #ef5350;
+  background: #ffebee;
 }
 
 /* ─── Markers in Scroller ────────────────────────────────────────────────────── */

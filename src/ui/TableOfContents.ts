@@ -4,12 +4,12 @@ import type { TocEntry } from '../epub/types';
 export interface TableOfContentsCallbacks {
   onNavigate: (chapterIndex: number) => void;
   onNavigateToBlock: (blockId: string) => void;
-  onDeleteBookmark: (id: string) => void;
-  onDeleteNote: (id: string) => void;
+  onEditAnnotation: (anno: Annotation) => void;
+  onDeleteAnnotation: (id: string) => void;
   onClose: () => void;
 }
 
-type TabType = 'contents' | 'bookmarks' | 'notes';
+type TabType = 'contents' | 'notebook';
 
 export class TableOfContents {
   private panel: HTMLElement;
@@ -19,8 +19,7 @@ export class TableOfContents {
   private activeTab: TabType = 'contents';
   
   private tocEntries: TocEntry[] = [];
-  private bookmarks: Annotation[] = [];
-  private notes: Annotation[] = [];
+  private annotations: Annotation[] = [];
   private bookTitle: string = '';
 
   constructor(callbacks: TableOfContentsCallbacks) {
@@ -71,8 +70,7 @@ export class TableOfContents {
     tabs.className = 'toc-tabs';
     tabs.innerHTML = `
       <button class="toc-tab active" data-tab="contents">Contents</button>
-      <button class="toc-tab" data-tab="bookmarks">Bookmarks</button>
-      <button class="toc-tab" data-tab="notes">Notes</button>
+      <button class="toc-tab" data-tab="notebook">Notebook</button>
     `;
     tabs.addEventListener('click', (e) => {
       const btn = (e.target as HTMLElement).closest('.toc-tab') as HTMLElement;
@@ -98,11 +96,10 @@ export class TableOfContents {
     this._render();
   }
 
-  setData(entries: TocEntry[], title: string, bookmarks: Annotation[], notes: Annotation[]): void {
+  setData(entries: TocEntry[], title: string, annotations: Annotation[]): void {
     this.tocEntries = entries;
     this.bookTitle = title;
-    this.bookmarks = bookmarks;
-    this.notes = notes;
+    this.annotations = annotations;
     this._render();
   }
 
@@ -112,10 +109,8 @@ export class TableOfContents {
 
     if (this.activeTab === 'contents') {
       this._renderContents(list);
-    } else if (this.activeTab === 'bookmarks') {
-      this._renderBookmarks(list);
-    } else if (this.activeTab === 'notes') {
-      this._renderNotes(list);
+    } else {
+      this._renderNotebook(list);
     }
   }
 
@@ -148,62 +143,60 @@ export class TableOfContents {
     }
   }
 
-  private _renderBookmarks(container: HTMLElement): void {
-    if (this.bookmarks.length === 0) {
-      container.innerHTML = '<div class="toc-empty">No bookmarks yet</div>';
+  private _renderNotebook(container: HTMLElement): void {
+    if (this.annotations.length === 0) {
+      container.innerHTML = '<div class="toc-empty">No notes or highlights yet</div>';
       return;
     }
 
-    this.bookmarks.forEach(b => {
+    this.annotations.forEach(anno => {
       const item = document.createElement('div');
-      item.className = 'toc-data-item';
+      item.className = `toc-data-item type-${anno.type}`;
+      
+      const hasNote = !!anno.note;
+      const highlightColor = anno.color || '#ffeb3b';
+      
       item.innerHTML = `
         <div class="toc-data-content">
-          <div class="toc-data-chapter">Chapter</div>
-          <div class="toc-data-text">"${b.text}"</div>
+          <div class="toc-data-header">
+             <span class="toc-data-type">${anno.type === 'highlight' ? 'Highlight' : 'Note'}</span>
+             <span class="toc-data-chapter">${(anno as any).chapterLabel || 'Chapter'}</span>
+          </div>
+          ${anno.type === 'highlight' || anno.text ? `
+            <div class="toc-data-quote" style="border-left-color: ${highlightColor}">
+              "${anno.text}"
+            </div>
+          ` : ''}
+          ${hasNote ? `<div class="toc-data-note-text">${anno.note}</div>` : ''}
         </div>
-        <button class="toc-data-delete" aria-label="Delete highlight">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-        </button>
+        <div class="toc-data-actions">
+          <button class="toc-data-btn edit-btn" title="Edit note">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="toc-data-btn delete-btn" title="Delete">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
       `;
+
       item.querySelector('.toc-data-content')!.addEventListener('click', () => {
-        this.callbacks.onNavigateToBlock(b.blockId);
+        this.callbacks.onNavigateToBlock(anno.blockId);
         this.hide();
       });
-      item.querySelector('.toc-data-delete')!.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.callbacks.onDeleteBookmark(b.id);
-      });
-      container.appendChild(item);
-    });
-  }
 
-  private _renderNotes(container: HTMLElement): void {
-    if (this.notes.length === 0) {
-      container.innerHTML = '<div class="toc-empty">No notes yet</div>';
-      return;
-    }
-
-    this.notes.forEach(n => {
-      const item = document.createElement('div');
-      item.className = 'toc-data-item';
-      item.innerHTML = `
-        <div class="toc-data-content">
-          <div class="toc-data-chapter">Chapter</div>
-          <div class="toc-data-text">${n.note || ''}</div>
-        </div>
-        <button class="toc-data-delete" aria-label="Delete note">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-        </button>
-      `;
-      item.querySelector('.toc-data-content')!.addEventListener('click', () => {
-        this.callbacks.onNavigateToBlock(n.blockId);
-        this.hide();
-      });
-      item.querySelector('.toc-data-delete')!.addEventListener('click', (e) => {
+      item.querySelector('.edit-btn')!.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.callbacks.onDeleteNote(n.id);
+        this.callbacks.onEditAnnotation(anno);
+        // We don't hide the TOC here, let the editor overlap or handle it
       });
+
+      item.querySelector('.delete-btn')!.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (confirm('Delete this annotation?')) {
+          this.callbacks.onDeleteAnnotation(anno.id);
+        }
+      });
+
       container.appendChild(item);
     });
   }

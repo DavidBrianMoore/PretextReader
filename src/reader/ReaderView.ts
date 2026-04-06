@@ -61,8 +61,8 @@ export class ReaderView {
     this.toc = new TableOfContents({
       onNavigate: (ci) => this._navigateToChapter(ci),
       onNavigateToBlock: (bid) => this.scroller.scrollToBlock(bid),
-      onDeleteBookmark: (id) => this._deleteAnnotation(id),
-      onDeleteNote: (id) => this._deleteAnnotation(id),
+      onEditAnnotation: (anno) => this._editAnnotation(anno),
+      onDeleteAnnotation: (id) => this._deleteAnnotation(id),
       onClose: () => {},
     });
 
@@ -183,23 +183,13 @@ export class ReaderView {
         const annos = saved.annotations || [];
         this.scroller.setAnnotations(annos);
         
-        // Update TOC Data
-        const simplifiedBookmarks = annos.filter(a => a.type === 'highlight').map(a => ({
-            id: a.id,
-            blockId: a.blockId,
-            text: a.text,
-            chapterLabel: this._getChapterLabel(a.blockId),
-            timestamp: a.createdAt
-        }));
-        const simplifiedNotes = annos.filter(a => a.type === 'note').map(a => ({
-            id: a.id,
-            blockId: a.blockId,
-            content: a.note || '',
-            chapterLabel: this._getChapterLabel(a.blockId),
-            timestamp: a.createdAt
+        // Pass annotations with injected chapter labels for the Notebook list
+        const annotatedList = annos.map(a => ({
+          ...a,
+          chapterLabel: this._getChapterLabel(a.blockId)
         }));
         
-        this.toc.setData(this.book.toc, this.book.metadata.title, simplifiedBookmarks as any, simplifiedNotes as any);
+        this.toc.setData(this.book.toc, this.book.metadata.title, annotatedList);
     }
   }
 
@@ -214,6 +204,17 @@ export class ReaderView {
     this.scroller.scrollToBlock(chapter.blocks[0].id);
     this.currentChapterIndex = chapterIndex;
     this.toc.setActiveChapter(chapterIndex);
+  }
+
+  private _editAnnotation(anno: Annotation): void {
+    if (anno.type === 'note') {
+      this._activeBlockId = anno.blockId;
+      this._openNoteEditor();
+    } else {
+      // For highlights, we scroll to it and let the user click to edit via the popover
+      // In the future, we could open a color picker directly
+      this.scroller.scrollToBlock(anno.blockId);
+    }
   }
 
   // ─── Block Actions ─────────────────────────────────────────────────────────
