@@ -1157,15 +1157,25 @@ a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px
 }
 
 /* ─── Footer ────────────────────────────────────────────────────────────────── */
-#footer {
+#app-footer {
   text-align: center;
   padding: 40px 24px 80px;
-  opacity: 0.8;
-  font-family: var(--font-ui);
-  font-size: 0.85rem;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  pointer-events: none;
+  background: transparent;
   width: 100%;
-  display: block;
+}
+
+.version-tag {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-muted);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  opacity: 0.7;
+}
+
+[data-theme="night"] .version-tag {
+  background: rgba(255, 255, 255, 0.1);
 }

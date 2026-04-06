@@ -13,8 +13,10 @@ import type { SavedBook } from './db/LibraryStore';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-const footer = document.getElementById('footer')!;
-footer.innerHTML = `<div class="footer-version">v${pkg.version}</div>`;
+const footer = document.createElement('footer');
+footer.id = 'app-footer';
+footer.innerHTML = `<span class="version-tag">Prerelease v${pkg.version}</span>`;
+document.body.appendChild(footer);
 
 let currentReader: ReaderView | null = null;
 let dropzone: Dropzone | null = null;
