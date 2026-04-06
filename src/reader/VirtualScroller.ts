@@ -145,15 +145,14 @@ export class VirtualScroller {
 
   setAnnotations(annos: Annotation[]): void {
     this.annotations = annos;
-    // Rerender visible blocks to show/hide highlights
+    // Force a surgical re-render of all currently visible blocks
     const [start, end] = this.renderedRange;
     for (let i = start; i <= end; i++) {
-        if (i < 0) continue;
+        if (i < 0 || i >= this.entries.length) continue;
         const entry = this.entries[i];
         if (entry.el) {
-            // Recapture the element and force a fresh render
-            this._unmount(i);
-            this._mount(i);
+            const blockAnnots = this.annotations.filter(a => a.blockId === entry.block.id);
+            renderBlock(entry.block, entry.el, this.columnWidth, this.settings, blockAnnots);
         }
     }
   }

@@ -9,7 +9,7 @@ export class AnnotationManager {
   private container: HTMLElement;
   private callbacks: AnnotationCallbacks;
   private popover: HTMLElement;
-  private currentSelection: { blockId: string; text: string; start: number; end: number } | null = null;
+  private currentSelection: { blockId: string; text: string; startOffset: number; endOffset: number } | null = null;
 
   constructor(container: HTMLElement, callbacks: AnnotationCallbacks) {
     this.container = container;
@@ -90,16 +90,26 @@ export class AnnotationManager {
     if (!id) return;
 
     const text = sel.toString();
+    const offsets = this._calculateOffsets(range, blockEl);
     
     this.currentSelection = {
         blockId: id,
         text,
-        start: 0, 
-        end: 0    
+        startOffset: offsets.start, 
+        endOffset: offsets.end    
     };
 
     this._showPopover(range.getBoundingClientRect());
   };
+
+  private _calculateOffsets(range: Range, blockEl: HTMLElement): { start: number; end: number } {
+    const preRange = range.cloneRange();
+    preRange.selectNodeContents(blockEl);
+    preRange.setEnd(range.startContainer, range.startOffset);
+    const start = preRange.toString().length;
+    const end = start + range.toString().length;
+    return { start, end };
+  }
 
   private _onMouseDown = (e: MouseEvent): void => {
       if (this.popover.contains(e.target as Node)) return;
@@ -125,7 +135,9 @@ export class AnnotationManager {
         type,
         text: sel.text,
         color: type === 'highlight' ? '#ffeb3b' : undefined,
-        note: type === 'note' ? noteVal : undefined
+        note: type === 'note' ? noteVal : undefined,
+        startOffset: sel.startOffset,
+        endOffset: sel.endOffset
     });
 
     this._hidePopover();
