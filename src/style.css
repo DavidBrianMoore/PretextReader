@@ -1248,6 +1248,35 @@ a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px
   width: 100%;
 }
 
+#add-fab {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  width: 64px;
+  height: 64px;
+  border-radius: 32px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 32px var(--accent-glow);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 1000;
+  display: none; /* Controlled by main.ts */
+}
+
+#add-fab:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 12px 40px var(--accent-glow);
+}
+
+#add-fab:active {
+  transform: scale(0.95);
+}
+
 .version-tag {
   background: rgba(0, 0, 0, 0.05);
   color: var(--text-muted);
