@@ -261,10 +261,10 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').then(reg => {
       console.log('SW registered');
-      // Look for a new service worker roughly every hour
+      // Check for updates every 5 minutes while active
       setInterval(() => {
         reg.update();
-      }, 60 * 60 * 1000);
+      }, 5 * 60 * 1000);
     }).catch(err => {
       console.log('SW registration failed: ', err);
     });
