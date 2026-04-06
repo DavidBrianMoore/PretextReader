@@ -8,7 +8,9 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "deploy": "firebase deploy --only hosting",
-    "push": "git push origin main && npm run build && npm run deploy"
+    "sync-sw": "node scripts/sync-version.js",
+    "version": "npm run sync-sw && git add public/sw.js",
+    "push": "npm version patch && git push origin main --follow-tags && npm run build && npm run deploy"
   },
   "devDependencies": {
     "typescript": "~5.9.3",
