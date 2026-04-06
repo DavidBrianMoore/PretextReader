@@ -236,13 +236,23 @@ function openBook(book: Book, startBlockId?: string): void {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 const params = new URLSearchParams(window.location.search);
-const urlParam = params.get('url');
+const shared = params.get('url') || params.get('text'); // Handle varied share targets
 
-if (urlParam) {
-  showDropzone(); // Create it so handleUrl can update it
-  handleUrl(urlParam);
+if (shared) {
+  const url = extractUrl(shared);
+  if (url) {
+    showDropzone(); 
+    handleUrl(url);
+  } else {
+    showLibrary();
+  }
 } else {
   showLibrary();
+}
+
+function extractUrl(str: string): string | null {
+  const match = str.match(/https?:\/\/[^\s]+/i);
+  return match ? match[0] : null;
 }
 
 // ─── Service Worker ──────────────────────────────────────────────────────────

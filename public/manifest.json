@@ -1,6 +1,7 @@
 {
   "name": "Pretext Reader",
   "short_name": "Pretext",
+  "version": "1.0.6",
   "description": "High-performance reading with beautiful typography.",
   "start_url": "/",
   "display": "standalone",
@@ -32,5 +33,11 @@
       "text": "text",
       "url": "url"
     }
-  }
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+pretext",
+      "url": "/?url=%s"
+    }
+  ]
 }
