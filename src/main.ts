@@ -145,7 +145,16 @@ async function handleUrl(url: string, redirectCount = 0): Promise<void> {
   importModal.showLoading(filename);
 
   try {
-    const response = await fetch(url);
+    let response: Response;
+    try {
+        response = await fetch(url);
+    } catch (fetchErr) {
+        // Handle CORS block or network issue
+        console.warn('Initial fetch failed, trying CORS proxy...', fetchErr);
+        const proxiedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        response = await fetch(proxiedUrl);
+    }
+
     if (!response.ok) throw new Error(`Remote server returned ${response.status}`);
 
     const contentType = response.headers.get('content-type') || '';
