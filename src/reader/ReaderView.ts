@@ -54,6 +54,7 @@ export class ReaderView {
       onFontChange: (f) => this._changeFont(f),
       onFontSizeChange: (d) => this._changeFontSize(d),
       onShare: () => this._share(),
+      onShareText: () => this._shareText(),
       onClose: () => this._close(),
     }, this.settings);
 
@@ -156,6 +157,35 @@ export class ReaderView {
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
         console.error('Share failed:', err);
+      }
+    }
+  }
+
+  private async _shareText(): Promise<void> {
+    if (!navigator.share) {
+      alert('Sharing is not supported on this browser.');
+      return;
+    }
+
+    try {
+      // Extract all text from all chapters
+      const fullText = this.book.chapters
+        .map(chapter => {
+          const chapterText = chapter.blocks
+            .map(block => (block.runs || []).map(run => run.text).join(''))
+            .filter(text => text.trim().length > 0)
+            .join('\n\n');
+          return `${chapter.label.toUpperCase()}\n\n${chapterText}`;
+        })
+        .join('\n\n\n');
+
+      await navigator.share({
+        title: this.book.metadata.title,
+        text: fullText,
+      });
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        console.error('Share text failed:', err);
       }
     }
   }
