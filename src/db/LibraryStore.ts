@@ -179,6 +179,29 @@ export class LibraryStore {
       tx.onerror = () => reject(tx.error);
     });
   }
+
+  async updateBookMetadata(id: string, metadata: Partial<SavedBook['metadata']>, coverBlob?: Blob): Promise<void> {
+    const db = await this.init();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_BOOKS, 'readwrite');
+      const store = tx.objectStore(STORE_BOOKS);
+      const req = store.get(id);
+      req.onsuccess = () => {
+        const book = req.result as SavedBook;
+        if (book) {
+          book.metadata = { ...book.metadata, ...metadata };
+          if (coverBlob) {
+            book.coverBlob = coverBlob;
+            // Update the coverSrc to reflect the new dynamic blob if needed for the current session
+            book.metadata.coverSrc = URL.createObjectURL(coverBlob);
+          }
+          store.put(book);
+        }
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
 }
 
 export const libraryStore = new LibraryStore();

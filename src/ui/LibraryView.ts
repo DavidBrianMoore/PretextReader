@@ -1,5 +1,6 @@
 import { libraryStore } from '../db/LibraryStore';
 import type { SavedBook } from '../db/LibraryStore';
+import { EditBookModal } from './EditBookModal';
 
 interface LibraryCallbacks {
   onSelectBook: (book: SavedBook) => void;
@@ -53,11 +54,18 @@ export class LibraryView {
       card.innerHTML = `
         <div class="library-book-cover">
           ${coverUrl ? `<img src="${coverUrl}" alt="Cover" />` : `<div class="library-book-cover-placeholder"></div>`}
-          <button class="library-delete-btn" title="Remove from library" data-id="${book.id}">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
-          </button>
+          <div class="library-card-actions">
+            <button class="library-edit-btn" title="Edit book details" data-id="${book.id}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
+            <button class="library-delete-btn" title="Remove from library" data-id="${book.id}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <div class="library-book-info">
           <div class="library-book-title">${book.metadata.title}</div>
@@ -66,8 +74,13 @@ export class LibraryView {
       `;
       
       card.addEventListener('click', (e) => {
-        if ((e.target as HTMLElement).closest('.library-delete-btn')) return;
+        if ((e.target as HTMLElement).closest('.library-card-actions')) return;
         this.callbacks.onSelectBook(book);
+      });
+
+      card.querySelector('.library-edit-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        new EditBookModal(book, { onSave: () => this.render() });
       });
 
       card.querySelector('.library-delete-btn')?.addEventListener('click', async (e) => {
