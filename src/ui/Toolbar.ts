@@ -39,6 +39,16 @@ export class Toolbar {
     const left = document.createElement('div');
     left.className = 'toolbar-group';
 
+    const brandBtn = document.createElement('div');
+    brandBtn.className = 'toolbar-brand';
+    brandBtn.id = 'toolbar-home-btn';
+    brandBtn.style.cursor = 'pointer';
+    brandBtn.style.marginRight = '12px';
+    brandBtn.style.padding = '4px 8px';
+    brandBtn.innerHTML = `<span style="font-family: var(--font-body); font-weight: 700; font-size: 1.1rem; color: var(--accent-primary);">PretextReader</span>`;
+    brandBtn.addEventListener('click', () => this.callbacks.onClose());
+    left.appendChild(brandBtn);
+
     const tocBtn = document.createElement('button');
     tocBtn.className = 'toolbar-btn';
     tocBtn.id = 'toolbar-toc-btn';

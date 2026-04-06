@@ -151,6 +151,19 @@ html, body {
   align-items: center;
 }
 
+.header-brand {
+  transition: opacity var(--transition), transform var(--transition);
+  user-select: none;
+}
+
+.header-brand:hover {
+  opacity: 0.8;
+}
+
+.header-brand:active {
+  transform: scale(0.98);
+}
+
 .header-left {
   display: flex;
   align-items: center;
@@ -2555,3 +2568,17 @@ a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(210, 106, 69, 0.3);
 }
+
+.toolbar-brand {
+  transition: opacity 0.2s, transform 0.2s;
+  user-select: none;
+}
+
+.toolbar-brand:hover {
+  opacity: 0.8;
+}
+
+.toolbar-brand:active {
+  transform: scale(0.98);
+}
+

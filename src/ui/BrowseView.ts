@@ -52,10 +52,13 @@ export class BrowseView {
     this.headerEl.innerHTML = `
       <div class="header-content">
         <div class="header-left">
+          <div class="header-brand" id="browse-home-btn" style="cursor: pointer; display: flex; align-items: center; gap: 8px; margin-right: 20px;">
+            <h2 style="font-family: var(--font-body); font-weight: 700; font-size: 1.4rem; margin: 0;">PretextReader</h2>
+          </div>
           <button class="header-back-btn" id="browse-back-btn" title="Back to Library">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
           </button>
-          <h2 style="font-family: var(--font-body); font-weight: 700; font-size: 1.4rem;">Browse Books</h2>
+          <h2 style="font-family: var(--font-body); font-weight: 500; font-size: 1.1rem; opacity: 0.8;">Browse Online</h2>
         </div>
         <div class="search-bar-wrap">
           <input type="text" id="browse-search-input" placeholder="Search Project Gutenberg..." />
@@ -65,6 +68,7 @@ export class BrowseView {
     `;
 
     this.headerEl.querySelector('#browse-back-btn')?.addEventListener('click', () => this.callbacks.onBack());
+    this.headerEl.querySelector('#browse-home-btn')?.addEventListener('click', () => this.callbacks.onBack());
     this.searchInput = this.headerEl.querySelector('#browse-search-input') as HTMLInputElement;
     this.searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this._doSearch();

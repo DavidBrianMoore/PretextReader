@@ -41,7 +41,9 @@ export class LibraryView {
     // Render Header
     this.headerEl.innerHTML = `
       <div class="header-content">
-        <h2 style="font-family: var(--font-body); font-weight: 700; font-size: 1.4rem;">Pretext</h2>
+        <div class="header-brand" id="header-home-btn" style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
+          <h2 style="font-family: var(--font-body); font-weight: 700; font-size: 1.4rem; margin: 0;">PretextReader</h2>
+        </div>
         <div class="header-actions">
            <button class="library-browse-btn" id="header-browse-btn">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -55,6 +57,12 @@ export class LibraryView {
     `;
     this.headerEl.querySelector('#header-upload-btn')?.addEventListener('click', () => this.callbacks.onUploadNew());
     this.headerEl.querySelector('#header-browse-btn')?.addEventListener('click', () => this.callbacks.onOpenBrowse());
+    this.headerEl.querySelector('#header-home-btn')?.addEventListener('click', () => {
+      // Just refresh library
+      window.location.hash = ''; 
+      // If we want a hard refresh or just recall the callback
+      location.reload(); 
+    });
 
     // Render Main Content
     this.el.innerHTML = '';
