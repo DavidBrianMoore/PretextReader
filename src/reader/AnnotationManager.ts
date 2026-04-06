@@ -168,6 +168,28 @@ export class AnnotationManager {
       this._hidePopover();
   };
 
+  public editAnnotation(anno: Annotation): void {
+    const el = this.container.querySelector(`mark[data-anno-id="${anno.id}"]`) as HTMLElement;
+    if (!el) {
+        // If not in DOM, we can't show popover easily yet (VirtualScroller might not have rendered it)
+        return;
+    }
+
+    this.currentSelection = {
+        blockId: anno.blockId,
+        text: anno.text,
+        startOffset: anno.startOffset || 0,
+        endOffset: anno.endOffset || 0,
+        existingId: anno.id
+    };
+
+    this.popover.querySelector('#anno-delete')?.classList.remove('hidden');
+    this._showPopover(el.getBoundingClientRect());
+    if (anno.note) {
+        this._showNoteInput(anno.note);
+    }
+  }
+
   private _showPopover(rect: DOMRect): void {
     this.popover.classList.remove('hidden');
     const top = rect.top + window.scrollY - 54;

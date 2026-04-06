@@ -211,9 +211,13 @@ export class ReaderView {
       this._activeBlockId = anno.blockId;
       this._openNoteEditor();
     } else {
-      // For highlights, we scroll to it and let the user click to edit via the popover
-      // In the future, we could open a color picker directly
+      // For highlights, scroll to it first to ensure it's in the DOM
       this.scroller.scrollToBlock(anno.blockId);
+      
+      // Wait a tiny bit for the VirtualScroller to render the markers before showing popover
+      setTimeout(() => {
+          this.annos.editAnnotation(anno);
+      }, 50);
     }
   }
 
