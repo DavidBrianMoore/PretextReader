@@ -1155,3 +1155,16 @@ a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px
     height: 18px;
   }
 }
+
+/* ─── Footer ────────────────────────────────────────────────────────────────── */
+#footer {
+  text-align: center;
+  padding: 40px 24px 60px;
+  opacity: 0.5;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  pointer-events: none;
+  width: 100%;
+}
