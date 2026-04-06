@@ -56,7 +56,10 @@ export class AnnotationManager {
         return;
     }
 
-    const blockEl = (range.commonAncestorContainer as HTMLElement).closest?.('.vscroll-block') as HTMLElement;
+    const container = range.commonAncestorContainer;
+    const element = container.nodeType === Node.ELEMENT_NODE ? (container as HTMLElement) : container.parentElement;
+    const blockEl = element?.closest('.vscroll-block') as HTMLElement;
+    
     if (!blockEl) return;
 
     const id = blockEl.getAttribute('data-block-id');
