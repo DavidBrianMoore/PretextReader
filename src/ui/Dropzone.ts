@@ -49,7 +49,7 @@ export class Dropzone {
           </label>
         </div>
       </div>
-
+      <div class="dropzone-features">
         <div class="dropzone-feature">
           <span class="feature-icon">📚</span>
           <span>EPUB, PDF & DOCX</span>
