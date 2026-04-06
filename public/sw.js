@@ -34,17 +34,30 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  // Try cache first, then network
-  e.respondWith(
-    caches.match(e.request).then((res) => {
-      return res || fetch(e.request).then((networkRes) => {
-          // Put to cache for next time if it's an asset
-          if (e.request.url.includes('fonts.gstatic.com') || e.request.url.includes('fonts.googleapis.com')) {
-              const clone = networkRes.clone();
+  const url = new URL(e.request.url);
+  const isShell = url.pathname === '/' || url.pathname === '/index.html' || url.pathname.endsWith('.ts');
+
+  if (isShell) {
+      // Network-First for the app shell
+      e.respondWith(
+          fetch(e.request).then((res) => {
+              const clone = res.clone();
               caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-          }
-          return networkRes;
-      });
-    })
-  );
+              return res;
+          }).catch(() => caches.match(e.request))
+      );
+  } else {
+      // Cache-First for other assets
+      e.respondWith(
+          caches.match(e.request).then((res) => {
+              return res || fetch(e.request).then((networkRes) => {
+                  if (url.href.includes('fonts.gstatic.com') || url.href.includes('fonts.googleapis.com')) {
+                      const clone = networkRes.clone();
+                      caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+                  }
+                  return networkRes;
+              });
+          })
+      );
+  }
 });

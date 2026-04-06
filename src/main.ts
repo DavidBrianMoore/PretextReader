@@ -149,13 +149,20 @@ async function handleUrl(url: string, redirectCount = 0): Promise<void> {
     try {
         response = await fetch(url);
     } catch (fetchErr) {
-        // Handle CORS block or network issue
+        // Initial fetch failed, try proxy with encoded URL
         console.warn('Initial fetch failed, trying CORS proxy...', fetchErr);
         const proxiedUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
         response = await fetch(proxiedUrl);
     }
 
-    if (!response.ok) throw new Error(`Remote server returned ${response.status}`);
+    if (!response.ok) {
+        // If 400 or other error, try a "clean" URL (no fragment/query if possible)
+        if (response.status === 400 && url.includes('?')) {
+            const cleanUrl = url.split('?')[0];
+            return handleUrl(cleanUrl, redirectCount + 1);
+        }
+        throw new Error(`Remote server returned ${response.status}`);
+    }
 
     const contentType = response.headers.get('content-type') || '';
     if (contentType.includes('text/html')) {
