@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pretext-v1.0.26';
+const CACHE_NAME = 'pretext-v1.0.27';
 const ASSETS = [
   '/',
   '/index.html',
