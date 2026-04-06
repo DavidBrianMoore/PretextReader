@@ -205,11 +205,10 @@ init();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // Cache-Busting: Append a timestamp to the SW registration to force an immediate server check.
-    navigator.serviceWorker.register(`/sw.js?v=${pkg.version}-${Date.now()}`, { scope: '/' });
+    // FIXED: Use pkg.version for stable registration without loops.
+    navigator.serviceWorker.register(`/sw.js?v=${pkg.version}`, { scope: '/' });
   });
 
-  // Atomic Reload: When the new Service Worker takes over, refresh the page immediately.
   let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (refreshing) return;
