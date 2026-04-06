@@ -250,10 +250,22 @@ if (urlParam) {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').then(reg => {
-      console.log('SW registered: ', reg);
+      console.log('SW registered');
+      // Look for a new service worker roughly every hour
+      setInterval(() => {
+        reg.update();
+      }, 60 * 60 * 1000);
     }).catch(err => {
       console.log('SW registration failed: ', err);
     });
+  });
+
+  // Reload the page once the new service worker is fully active
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
   });
 }
 
