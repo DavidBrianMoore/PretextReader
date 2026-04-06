@@ -52,6 +52,7 @@ export async function parseDocx(file: File): Promise<Book> {
   return {
     metadata,
     chapters: [chapter],
-    toc: [toc]
+    toc: [toc],
+    sourceFile: file
   };
 }

@@ -47,4 +47,5 @@ export interface Book {
   metadata: BookMetadata;
   chapters: Chapter[];
   toc: TocEntry[];
+  sourceFile?: File;
 }

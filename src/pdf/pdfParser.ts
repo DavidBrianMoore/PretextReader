@@ -200,6 +200,7 @@ export async function parsePdf(file: File): Promise<Book> {
   return {
     metadata: bookMetadata,
     chapters,
-    toc
+    toc,
+    sourceFile: file
   };
 }

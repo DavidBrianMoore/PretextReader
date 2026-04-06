@@ -53,6 +53,7 @@ export class ReaderView {
       onThemeChange: (t) => this._changeTheme(t),
       onFontChange: (f) => this._changeFont(f),
       onFontSizeChange: (d) => this._changeFontSize(d),
+      onShare: () => this._share(),
       onClose: () => this._close(),
     }, this.settings);
 
@@ -122,6 +123,41 @@ export class ReaderView {
     applyFont(this.settings.font, newSize, newLH);
     this.scroller.updateSettings(this.settings);
     this.toolbar.updateSettings(this.settings);
+  }
+
+  private async _share(): Promise<void> {
+    const file = this.book.sourceFile;
+    if (!file) {
+      alert('This book cannot be shared as the source file is missing.');
+      return;
+    }
+
+    if (!navigator.share) {
+      alert('Sharing is not supported on this browser.');
+      return;
+    }
+
+    try {
+      // Check if sharing files is supported
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: this.book.metadata.title,
+          text: `Reading ${this.book.metadata.title} on Pretext Reader`,
+        });
+      } else {
+        // Fallback to sharing text/title
+        await navigator.share({
+          title: this.book.metadata.title,
+          text: `I'm reading ${this.book.metadata.title} on Pretext Reader!`,
+          url: window.location.href,
+        });
+      }
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        console.error('Share failed:', err);
+      }
+    }
   }
 
   private _close(): void {

@@ -258,5 +258,5 @@ export async function parseEpub(file: File): Promise<Book> {
     chapters.push(chapter);
   }
 
-  return { metadata, chapters, toc };
+  return { metadata, chapters, toc, sourceFile: file };
 }
