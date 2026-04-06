@@ -1321,6 +1321,107 @@ a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px
 .theme-sepia { background: #f4ead5; box-shadow: inset 0 0 0 1px #c8bc9a; }
 .theme-night { background: #111215; box-shadow: inset 0 0 0 1px #3a3d42; }
 
+/* ─── Toolbar Popovers & Menus ─── */
+.toolbar-popover {
+  position: fixed;
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  z-index: 1100;
+  min-width: 220px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  padding: 8px;
+}
+
+.toolbar-popover.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.toolbar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  gap: 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+}
+
+.menu-row:last-child {
+  border-bottom: none;
+}
+
+.menu-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.menu-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.menu-btn {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  color: var(--text);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.menu-btn:hover {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.2s, color 0.1s;
+  text-align: left;
+}
+
+.menu-item:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.menu-item svg {
+  opacity: 0.8;
+}
+
+
 /* ─── Table of Contents ──────────────────────────────────────────────────────── */
 .toc-overlay {
   position: fixed;
@@ -1649,16 +1750,13 @@ a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px
   .dropzone-features { gap: 16px; }
   .dropzone-drop-inner { padding: 28px 20px; }
   
-  .toolbar { padding: 0 8px; }
-  .toolbar-group { gap: 2px; }
-  .toolbar-btn { min-width: 32px; width: 32px; height: 32px; padding: 0 4px; }
-  .toolbar-select { padding: 0 4px; height: 30px; font-size: 0.78rem; max-width: 90px; }
-  
-  .toolbar-theme-group { 
-    margin-left: 4px;
-    padding-left: 6px;
-    gap: 4px;
-  }
+  .header-brand { display: none; }
+  .toolbar-brand { display: none; }
+  .toolbar { padding: 0 12px; }
+  .toolbar-group { gap: 4px; }
+  .toolbar-btn { width: 38px; height: 38px; padding: 0; }
+  /* Themes and Selects are now in the Aa menu */
+  .toolbar-select, .toolbar-theme-group { display: none; }
 }
 
 @media (max-width: 400px) {
