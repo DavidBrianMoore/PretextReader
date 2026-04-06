@@ -104,8 +104,8 @@ export class VirtualScroller {
   }
 
   private _measureColumnWidth(): number {
-    // Use documentElement.clientWidth for better cross-device mobile consistency
-    const vw = document.documentElement.clientWidth;
+    // Take the smaller of clientWidth and innerWidth to be extra safe against overflow
+    const vw = Math.min(document.documentElement.clientWidth, window.innerWidth);
     // Tighter gutters on modern mobile (iPhone 16 Pro Max centered layout fix)
     const gutter = vw < 500 ? 56 : (vw < 700 ? 48 : 64);
     return Math.min(vw - gutter, this.settings.columnWidth);
@@ -133,10 +133,12 @@ export class VirtualScroller {
     // Sync body height so window scroll works
     document.body.style.minHeight = `${y}px`;
     
-    // Ensure perfect horizontal centering on first load
-    window.scrollTo({ left: 0, top: 0, behavior: 'instant' as any });
-    
-    this._render();
+    // DELAYED RENDER: Ensure browser has finalized its mobile layout scaling
+    requestAnimationFrame(() => {
+      // Ensure perfect horizontal centering on first load
+      window.scrollTo({ left: 0, top: 0, behavior: 'instant' as any });
+      this._render();
+    });
   }
 
   updateSettings(settings: ReaderSettings): void {
