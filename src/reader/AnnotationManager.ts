@@ -41,20 +41,27 @@ export class AnnotationManager {
 
     el.querySelector('.highlight')?.addEventListener('click', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       this._handleAction('highlight');
     });
 
     el.querySelector('.note-trigger')?.addEventListener('click', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       this._showNoteInput();
     });
 
-    el.querySelector('#anno-save-note')?.addEventListener('click', () => {
+    el.querySelector('#anno-save-note')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         this._handleAction('note');
     });
 
     el.querySelector('#anno-note-text')?.addEventListener('keydown', (e) => {
-        if ((e as KeyboardEvent).key === 'Enter') this._handleAction('note');
+        if ((e as KeyboardEvent).key === 'Enter') {
+          e.preventDefault();
+          this._handleAction('note');
+        }
         if ((e as KeyboardEvent).key === 'Escape') this._hidePopover();
     });
 
