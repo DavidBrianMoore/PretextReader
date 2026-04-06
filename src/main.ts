@@ -30,7 +30,15 @@ let libraryView: LibraryView | null = null;
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
 
-async function showLibrary(): Promise<void> {
+/**
+ * Show the user's book collection.
+ * Push state to browser history so 'back' works.
+ */
+async function showLibrary(isPopState = false): Promise<void> {
+  if (!isPopState) {
+    history.pushState({ view: 'library' }, '', window.location.pathname);
+  }
+
   if ((window as any).requestSwUpdate) (window as any).requestSwUpdate();
   currentReader?.destroy();
   currentReader = null;
@@ -45,6 +53,8 @@ async function showLibrary(): Promise<void> {
       onSelectBook: (book) => openBook(book.id),
       onUploadNew: () => showDropzone(),
     });
+  } else {
+    libraryView.render();
   }
 }
 
@@ -76,9 +86,20 @@ function showDropzone(): void {
   }
 }
 
-async function openBook(id: string): Promise<void> {
+/**
+ * Load and render a specific book.
+ * Push state to browser history so 'back' takes you to Library.
+ */
+async function openBook(id: string, isPopState = false): Promise<void> {
   const saved = await libraryStore.getBook(id);
-  if (!saved) return;
+  if (!saved) {
+    showLibrary();
+    return;
+  }
+
+  if (!isPopState) {
+    history.pushState({ view: 'reader', bookId: id }, '', `?book=${id}`);
+  }
 
   const book: Book = {
     metadata: saved.metadata,
@@ -101,21 +122,30 @@ async function openBook(id: string): Promise<void> {
         document.title = 'Pretext Reader';
         showLibrary();
     },
-    undefined, // default settings
+    undefined, 
     (blockId, top) => {
       libraryStore.updateProgress(id, blockId, top);
     },
     id
   );
 
-  // If we have saved progress, scroll there
   if (saved.lastReadBlockId) {
-    // Small delay to let scroller initialize
     setTimeout(() => {
         currentReader?.scrollToBlock(saved.lastReadBlockId!, false);
     }, 100);
   }
 }
+
+// ─── Browser History Integration ─────────────────────────────────────────────
+
+window.addEventListener('popstate', (e) => {
+    const state = e.state;
+    if (!state || state.view === 'library') {
+        showLibrary(true);
+    } else if (state.view === 'reader' && state.bookId) {
+        openBook(state.bookId, true);
+    }
+});
 
 // ─── FAB Action ──────────────────────────────────────────────────────────────
 
@@ -126,8 +156,12 @@ fab.addEventListener('click', () => {
 // ─── Initialization ──────────────────────────────────────────────────────────
 
 async function init() {
-    // Check for shared URL/content (Protocol / Share Target)
     const params = new URLSearchParams(window.location.search);
+    
+    // Check for deep-link book load
+    const deepBookId = params.get('book');
+    
+    // Check for shared URL/content (Protocol / Share Target)
     const sharedText = params.get('text') || params.get('url') || params.get('title');
     
     if (sharedText) {
@@ -146,9 +180,14 @@ async function init() {
         }
     }
 
+    if (deepBookId) {
+        openBook(deepBookId, true);
+        return;
+    }
+
     const books = await libraryStore.getAllBooks();
     if (books.length > 0) {
-        showLibrary();
+        showLibrary(true); // Don't pushState initial load
     } else {
         showDropzone();
     }
@@ -170,7 +209,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Global update check helper
 (window as any).requestSwUpdate = async () => {
   if (!('serviceWorker' in navigator)) return;
   const registration = await navigator.serviceWorker.getRegistration();
@@ -179,10 +217,8 @@ if ('serviceWorker' in navigator) {
   }
 };
 
-// Polling for updates every 5 minutes while active
 setInterval(() => (window as any).requestSwUpdate(), 5 * 60 * 1000);
 
-// Check on visibility change (when tab is focused/re-activated)
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     (window as any).requestSwUpdate();
