@@ -376,16 +376,32 @@ export class ReaderView {
 
   private async _share(): Promise<void> {
     const file = this.book.sourceFile;
-    if (!file) return alert('Source file missing.');
-    if (!navigator.share) return alert('Share not supported.');
+    if (!file) return alert('Cannot find the original book file. Try re-importing the book.');
+    if (!navigator.share) return alert('Your browser does not support the Web Share API.');
 
     try {
+      console.log(`Sharing file: ${file.name} (${file.type}, ${file.size} bytes)`);
+      
+      // Some mobile browsers fail if you share files + other text fields simultaneously
+      // So we prioritize only sharing the actual file
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: this.book.metadata.title });
+        await navigator.share({ 
+          files: [file],
+          title: this.book.metadata.title 
+        });
       } else {
-        await navigator.share({ title: this.book.metadata.title, url: window.location.href });
+        // Fallback: Share the URL
+        await navigator.share({ 
+          title: this.book.metadata.title, 
+          url: window.location.href 
+        });
       }
-    } catch (err) { }
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        console.error('Share failed:', err);
+        alert(`Share failed: ${(err as Error).message}\n\nPlease try again or use "Share Clean Text" instead.`);
+      }
+    }
   }
 
   private async _shareText(): Promise<void> {
