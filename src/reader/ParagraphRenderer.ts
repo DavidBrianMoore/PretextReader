@@ -206,7 +206,15 @@ function createRunNode(run: TextRun): HTMLElement | Text {
     if (run.href) {
         const a = span as HTMLAnchorElement;
         a.href = run.href;
-        if (!run.href.startsWith('#')) {
+        
+        // Internal links: fragments or local book files (.html/xhtml)
+        const isInternal = run.href.startsWith('#') || 
+                           run.href.includes('.html') || 
+                           run.href.includes('.xhtml');
+        
+        if (isInternal) {
+            span.setAttribute('data-internal-link', 'true');
+        } else if (run.href.startsWith('http')) {
             a.target = '_blank';
             a.rel = 'noopener noreferrer';
         }
