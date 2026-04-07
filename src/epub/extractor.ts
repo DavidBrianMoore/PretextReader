@@ -7,13 +7,21 @@ function nextId(chapterId: string): string {
 
 // ─── Text Run Extraction ───────────────────────────────────────────────────────
 
+function normalizeText(text: string): string {
+  // Replace all sequences of whitespace (including newlines) with a single space
+  return text.replace(/\s+/g, ' ');
+}
+
 function extractRuns(el: Element | Node, bold = false, italic = false, href?: string): TextRun[] {
   const runs: TextRun[] = [];
 
   el.childNodes.forEach(node => {
     if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent ?? '';
-      if (text) runs.push({ text, bold, italic, href });
+      if (text) {
+        // Only normalize if not in a <pre> or <code> block (handled elsewhere, though extractRuns is recursive)
+        runs.push({ text: normalizeText(text), bold, italic, href });
+      }
       return;
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return;
@@ -48,6 +56,18 @@ function mergeAdjacentRuns(runs: TextRun[]): TextRun[] {
       merged.push({ ...run });
     }
   }
+
+  // Final pass to clean up artifacts like layout hyphens (e.g. "sur- fice")
+  // and ensure spacing between runs isn't doubled
+  for (const run of merged) {
+    // 1. Join split words: "hyphen- space lowercase" -> "joined-lowercase"
+    // e.g. "com- pounded" -> "compounded"
+    run.text = run.text.replace(/([a-zA-Z])- ([a-z])/g, '$1$2');
+    
+    // 2. Collapse any remaining double spaces that might have formed at run boundaries
+    run.text = run.text.replace(/  +/g, ' ');
+  }
+
   return merged;
 }
 

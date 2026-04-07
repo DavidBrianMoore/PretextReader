@@ -393,7 +393,7 @@ export class ReaderView {
     if (!navigator.share) return alert('Share not supported.');
     try {
       const fullText = this.book.chapters
-        .map(ch => `${ch.label.toUpperCase()}\n\n${ch.blocks.map(b => (b.runs || []).map(r => r.text).join('')).join('\n\n')}`)
+        .map(ch => `${ch.label.toUpperCase()}\n\n${ch.blocks.map(b => (b.runs || []).map(r => r.text).join('').trim()).join('\n\n')}`)
         .join('\n\n\n');
       await navigator.share({ title: this.book.metadata.title, text: fullText });
     } catch (err) { }
