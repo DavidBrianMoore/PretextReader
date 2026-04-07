@@ -57,12 +57,12 @@ function mergeAdjacentRuns(runs: TextRun[]): TextRun[] {
     }
   }
 
-  // Final pass to clean up artifacts like layout hyphens (e.g. "sur- fice")
+  // Final pass to clean up artifacts like layout hyphens (e.g. "sur- fice" or "sur-fice")
   // and ensure spacing between runs isn't doubled
   for (const run of merged) {
-    // 1. Join split words: "hyphen- space lowercase" -> "joined-lowercase"
-    // e.g. "com- pounded" -> "compounded"
-    run.text = run.text.replace(/([a-zA-Z])- ([a-z])/g, '$1$2');
+    // 1. Join split words: "hyphen- space lowercase" OR "hyphen lowercase" at end of run -> "joined-lowercase"
+    // e.g. "com- pounded" -> "compounded", "sur-fice" -> "suffice"
+    run.text = run.text.replace(/([a-zA-Z])-?\s*([a-z])/g, '$1$2');
     
     // 2. Collapse any remaining double spaces that might have formed at run boundaries
     run.text = run.text.replace(/  +/g, ' ');
@@ -273,15 +273,16 @@ export function mergeCompatibleBlocks(blocks: ContentBlock[]): ContentBlock[] {
     const nextText = (next.runs || []).map(r => r.text).join('').trim();
 
     // Check if current block ends the sentence
-    // Typically: . ! ? or closing quotes.
-    const endsSentence = /[.!?%”"’']$/.test(currentText);
+    // Typically: . ! ? or closing quotes, colons, semicolons
+    const endsSentence = /[.!?%”"’':;]$/.test(currentText);
     
     // Check if next block starts a new sentence
-    // (Uppercase first letter)
-    const startsWithCapital = /^[A-Z]/.test(nextText);
+    // (Uppercase first letter or a list bullet)
+    const startsWithCapital = /^[A-Z•·]/.test(nextText);
     
     // Merge if it doesn't end a sentence OR if it starts with lower case (continuation)
-    if (!endsSentence || !startsWithCapital) {
+    // OR if it's very short (less than 3 characters - likely a fragment)
+    if (!endsSentence || !startsWithCapital || nextText.length < 3) {
       current.runs = [...(current.runs || []), ...(next.runs || [])];
       // Re-run the run-merging to ensure it's clean (hyphens handles here)
       current.runs = mergeAdjacentRuns(current.runs);

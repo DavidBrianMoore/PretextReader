@@ -392,10 +392,42 @@ export class ReaderView {
   private async _shareText(): Promise<void> {
     if (!navigator.share) return alert('Share not supported.');
     try {
-      const fullText = this.book.chapters
-        .map(ch => `${ch.label.toUpperCase()}\n\n${ch.blocks.map(b => (b.runs || []).map(r => r.text).join('').trim()).join('\n\n')}`)
-        .join('\n\n\n');
-      await navigator.share({ title: this.book.metadata.title, text: fullText });
+      let fullText = '';
+      for (let i = 0; i < this.book.chapters.length; i++) {
+        const ch = this.book.chapters[i];
+        const prevText = fullText.trim();
+        const chText = ch.blocks
+          .map(b => (b.runs || []).map(r => r.text).join('').trim())
+          .filter(t => t.length > 0)
+          .join('\n\n');
+
+        if (!chText) continue;
+
+        // Determine joining separator
+        let sep = '\n\n\n';
+        if (prevText) {
+            const endsWithPunct = /[.!?%”"’':;]$/.test(prevText);
+            const startsWithLower = /^[a-z]/.test(chText);
+            
+            // If previous chapter (page) ended mid-sentence, join with space instead of gap
+            if (!endsWithPunct || startsWithLower) {
+                sep = ' '; 
+            }
+        }
+
+        // Add chapter label only if it's not a generic "Page X" that breaks a sentence
+        const isGenericPage = /^PAGE \d+$/i.test(ch.label.trim());
+        const shouldAddLabel = !isGenericPage || (fullText === '' || /[.!?%”"’':;]$/.test(prevText));
+
+        if (shouldAddLabel && !fullText.includes(ch.label.toUpperCase())) {
+            fullText += (fullText ? '\n\n\n' : '') + ch.label.toUpperCase() + '\n\n';
+            fullText += chText;
+        } else {
+            fullText += sep + chText;
+        }
+      }
+
+      await navigator.share({ title: this.book.metadata.title, text: fullText.trim() });
     } catch (err) { }
   }
 
