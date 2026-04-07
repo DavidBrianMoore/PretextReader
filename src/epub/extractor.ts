@@ -74,8 +74,13 @@ export function extractBlocks(
       return;
     }
 
-    function resolveId(el: Element): string {
-      return el.getAttribute('id') || nextId(chapterId);
+    const explicitId = el.getAttribute('id') || (tag === 'a' ? el.getAttribute('name') : null);
+    if (explicitId) {
+       blocks.push({ id: explicitId, type: 'anchor' });
+    }
+
+    function resolveId(_el?: Element): string {
+      return explicitId || nextId(chapterId);
     }
 
     // Headings

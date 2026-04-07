@@ -1,6 +1,6 @@
 // EPUB data types
 
-export type ContentBlockType = 'paragraph' | 'heading' | 'image' | 'blockquote' | 'hr' | 'code';
+export type ContentBlockType = 'paragraph' | 'heading' | 'image' | 'blockquote' | 'hr' | 'code' | 'anchor';
 
 export interface TextRun {
   text: string;

@@ -42,6 +42,7 @@ export function predictBlockHeight(
   columnWidth: number,
   settings: ReaderSettings,
 ): number {
+  if (block.type === 'anchor') return 0;
   if (block.type === 'hr') return HR_HEIGHT + PARAGRAPH_GAP;
 
   if (block.type === 'image') {
@@ -87,6 +88,16 @@ export function renderBlock(
   el.innerHTML = '';
   el.classList.add('vscroll-block', `block-${block.type}`);
   el.setAttribute('data-block-id', block.id);
+  
+  if (block.type === 'anchor') {
+    el.classList.add('speechify-ignore');
+    el.style.height = '0px';
+    el.style.margin = '0px';
+    el.style.padding = '0px';
+    el.style.border = 'none';
+    return 0;
+  }
+
   el.style.fontSize = `${settings.fontSize}px`;
   // Body font family applied via CSS var, but we can set it here too if needed
   
