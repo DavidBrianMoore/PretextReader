@@ -1,6 +1,7 @@
 import * as pdfjs from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import type { Book, Chapter, BookMetadata, TocEntry, ContentBlock } from '../epub/types';
+import { mergeCompatibleBlocks } from '../epub/extractor';
 
 // Configure PDF.js worker
 try {
@@ -181,7 +182,7 @@ export async function parsePdf(file: File): Promise<Book> {
       id: chapterId,
       href: `#${chapterId}`,
       label: `Page ${i}`,
-      blocks
+      blocks: mergeCompatibleBlocks(blocks)
     });
 
     // Add to TOC

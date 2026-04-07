@@ -236,10 +236,61 @@ export function extractBlocks(
   });
 
   // Remove empty blocks and deduplicate
-  return blocks.filter(b => {
+  const filtered = blocks.filter(b => {
     if (b.type === 'hr') return true;
     if (b.type === 'image') return !!b.src;
+    if (b.type === 'anchor') return true;
     const text = runsText(b.runs ?? []).trim();
     return text.length > 0;
   });
+
+  return mergeCompatibleBlocks(filtered);
+}
+
+/**
+ * Intelligent paragraph merging for sentence fragments.
+ */
+export function mergeCompatibleBlocks(blocks: ContentBlock[]): ContentBlock[] {
+  if (blocks.length <= 1) return blocks;
+
+  const merged: ContentBlock[] = [];
+  let current: ContentBlock | null = null;
+
+  for (const next of blocks) {
+    if (!current) {
+      current = { ...next };
+      continue;
+    }
+
+    const canMerge = current.type === 'paragraph' && next.type === 'paragraph';
+    if (!canMerge) {
+      merged.push(current);
+      current = { ...next };
+      continue;
+    }
+
+    const currentText = (current.runs || []).map(r => r.text).join('').trim();
+    const nextText = (next.runs || []).map(r => r.text).join('').trim();
+
+    // Check if current block ends the sentence
+    // Typically: . ! ? or closing quotes.
+    const endsSentence = /[.!?%”"’']$/.test(currentText);
+    
+    // Check if next block starts a new sentence
+    // (Uppercase first letter)
+    const startsWithCapital = /^[A-Z]/.test(nextText);
+    
+    // Merge if it doesn't end a sentence OR if it starts with lower case (continuation)
+    if (!endsSentence || !startsWithCapital) {
+      current.runs = [...(current.runs || []), ...(next.runs || [])];
+      // Re-run the run-merging to ensure it's clean (hyphens handles here)
+      current.runs = mergeAdjacentRuns(current.runs);
+    } else {
+      merged.push(current);
+      current = { ...next };
+    }
+  }
+
+  if (current) merged.push(current);
+  return merged;
 }
