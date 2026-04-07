@@ -12,6 +12,7 @@ import { ActionMenu } from '../ui/ActionMenu';
 import { NoteEditor } from '../ui/NoteEditor';
 import { ChatSidebar } from '../ui/ChatSidebar';
 import { BookSerializer } from './BookSerializer';
+import { BibliographyModal } from '../ui/BibliographyModal';
 
 export class ReaderView {
   private el: HTMLElement;
@@ -96,11 +97,12 @@ export class ReaderView {
       onShareText: () => this._shareText(),
       onShareTTS: () => this._shareTTS(),
       onSearch: () => this.search.toggle(),
+      onBibliography: () => this._showBibliography(),
       onClose: () => this._close(),
     }, this.settings);
 
     // Build Annotations
-    this.annos = new AnnotationManager(scrollContainer, {
+    this.annos = new AnnotationManager(scrollContainer, this.book.metadata, {
         onAdd: async (anno) => {
             const fullAnno: Annotation = {
                 ...anno,
@@ -437,6 +439,11 @@ export class ReaderView {
     } else {
         alert('Sharing not supported on this browser, but the clean text has been copied to your clipboard!');
     }
+  }
+
+  private _showBibliography(): void {
+    if (!this.bookId) return;
+    new BibliographyModal(this.bookId, this.book.metadata);
   }
 
   private _close(): void {

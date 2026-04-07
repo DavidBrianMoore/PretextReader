@@ -1,6 +1,7 @@
 import { libraryStore } from '../db/LibraryStore';
 import type { SavedBook } from '../db/LibraryStore';
 import { EditBookModal } from './EditBookModal';
+import { CitationHelper } from '../utils/CitationHelper';
 
 interface LibraryCallbacks {
   onSelectBook: (book: SavedBook) => void;
@@ -45,6 +46,10 @@ export class LibraryView {
           <h2 style="font-family: var(--font-body); font-weight: 700; font-size: 1.4rem; margin: 0;">PretextReader</h2>
         </div>
         <div class="header-actions">
+           <button class="library-bib-btn" id="library-bib-export" title="Export all citations to Zotero (BibTeX)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            <span>Export BibTeX</span>
+          </button>
            <button class="library-browse-btn" id="header-browse-btn">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <span>Browse Online</span>
@@ -57,6 +62,7 @@ export class LibraryView {
     `;
     this.headerEl.querySelector('#header-upload-btn')?.addEventListener('click', () => this.callbacks.onUploadNew());
     this.headerEl.querySelector('#header-browse-btn')?.addEventListener('click', () => this.callbacks.onOpenBrowse());
+    this.headerEl.querySelector('#library-bib-export')?.addEventListener('click', () => this._exportLibraryBibTeX(books));
     this.headerEl.querySelector('#header-home-btn')?.addEventListener('click', () => {
       // Just refresh library
       window.location.hash = ''; 
@@ -66,6 +72,7 @@ export class LibraryView {
 
     // Render Main Content
     this.el.innerHTML = '';
+
 
     // 1. Hero Section (Continue Reading)
     if (latestBook) {
@@ -190,6 +197,25 @@ export class LibraryView {
     });
 
     return card;
+  }
+
+  private _exportLibraryBibTeX(books: SavedBook[]) {
+    if (books.length === 0) return;
+    
+    let fullBibTeX = '';
+    books.forEach(book => {
+        const citations = book.annotations?.filter(a => a.type === 'citation') || [];
+        const notes = citations.map(a => a.text).join('\n\n');
+        fullBibTeX += CitationHelper.generateBibTeX(book.metadata, notes) + '\n\n';
+    });
+
+    const blob = new Blob([fullBibTeX], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Pretext_Library_${new Date().toISOString().split('T')[0]}.bib`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   destroy(): void {

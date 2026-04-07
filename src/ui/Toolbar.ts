@@ -10,6 +10,7 @@ export interface ToolbarCallbacks {
   onShareText: () => void;
   onShareTTS: () => void;
   onSearch: () => void;
+  onBibliography: () => void;
   onClose: () => void;
 }
 
@@ -87,6 +88,18 @@ export class Toolbar {
     </svg>`;
     searchBtn.addEventListener('click', () => this.callbacks.onSearch());
     left.appendChild(searchBtn);
+
+    const bibBtn = document.createElement('button');
+    bibBtn.className = 'toolbar-btn';
+    bibBtn.id = 'toolbar-bib-btn';
+    bibBtn.setAttribute('aria-label', 'View Bibliography');
+    bibBtn.title = 'View Bibliography';
+    bibBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+    </svg>`;
+    bibBtn.addEventListener('click', () => this.callbacks.onBibliography());
+    left.appendChild(bibBtn);
 
     // — Right group —
     const right = document.createElement('div');

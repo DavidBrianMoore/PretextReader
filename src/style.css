@@ -543,6 +543,29 @@ html, body {
   color: var(--text);
 }
 
+.library-bib-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.library-bib-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
 .library-upload-btn {
   padding: 12px 24px;
   background: var(--surface);
@@ -1875,6 +1898,7 @@ a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px
   background: rgba(255, 255, 255, 0.1);
 }
 
+
 /* ─── Action Menu ────────────────────────────────────────────────────────────── */
 .action-menu {
   position: fixed;
@@ -2707,5 +2731,128 @@ a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px
 
 .toolbar-brand:active {
   transform: scale(0.98);
+}
+
+
+/* ─── Bibliography Modal ─────────────────────────────────────────────────────── */
+.bibliography-modal {
+  max-width: 600px !important;
+  max-height: 85vh;
+}
+
+.bibliography-list {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.bibliography-entry {
+  font-family: var(--font-body);
+  font-size: 1.1rem;
+  line-height: 1.6;
+  padding: 16px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  border-left: 4px solid var(--accent);
+  margin-bottom: 24px;
+  border-radius: 4px;
+}
+
+.citation-item {
+  margin-bottom: 20px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.citation-text {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.citation-ref {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.modal-actions {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.btn {
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.btn-secondary {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.btn-secondary:hover {
+  background: var(--border);
+}
+
+.btn-primary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 0;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ─── Citation Annotation ────────────────────────────────────────────────────── */
+.anno-citation {
+  background: rgba(192, 96, 58, 0.2); /* var(--accent) with opacity */
+  border-bottom: 1.5px solid var(--accent);
+  cursor: help;
+}
+
+.anno-citation:hover::after {
+  content: "Citation: " attr(data-citation);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  white-space: pre-wrap;
+  min-width: 250px;
+  max-width: 400px;
+  z-index: 100;
+  border: 1px solid var(--border);
+  animation: toolFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 

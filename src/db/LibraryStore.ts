@@ -8,10 +8,12 @@ import type { Book } from '../epub/types';
 export interface Annotation {
   id: string;
   blockId: string;
-  type: 'highlight' | 'note';
+  type: 'highlight' | 'note' | 'citation';
   color?: string; // e.g. #ffeb3b
   text: string;  // selected text
   note?: string; // for type: 'note'
+  citation?: string; // formatted footnote/citation
+  bibliography?: string; // formatted bibliography entry
   startOffset?: number; // relative to block's plain text
   endOffset?: number;
   createdAt: number;

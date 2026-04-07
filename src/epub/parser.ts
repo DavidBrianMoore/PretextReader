@@ -60,6 +60,9 @@ async function parseOpf(zip: JSZip, opfPath: string): Promise<OpfData> {
   const author = doc.getElementsByTagNameNS(ns, 'creator')[0]?.textContent?.trim() ?? 'Unknown Author';
   const publisher = doc.getElementsByTagNameNS(ns, 'publisher')[0]?.textContent?.trim();
   const language = doc.getElementsByTagNameNS(ns, 'language')[0]?.textContent?.trim();
+  const dateRaw = doc.getElementsByTagNameNS(ns, 'date')[0]?.textContent?.trim();
+  const date = dateRaw ? dateRaw.substring(0, 4) : undefined; // Get year
+  const isbn = doc.getElementsByTagNameNS(ns, 'identifier')[0]?.textContent?.trim();
 
   // Manifest
   const manifest = new Map<string, { href: string; mediaType: string }>();
@@ -95,7 +98,7 @@ async function parseOpf(zip: JSZip, opfPath: string): Promise<OpfData> {
 
   return {
     opfDir,
-    metadata: { title, author, publisher, language, coverSrc },
+    metadata: { title, author, publisher, language, date, isbn, coverSrc },
     spineIds,
     manifest,
     tocId,

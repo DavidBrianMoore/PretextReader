@@ -40,6 +40,8 @@ export interface BookMetadata {
   author: string;
   publisher?: string;
   language?: string;
+  date?: string;
+  isbn?: string;
   coverSrc?: string; // blob URL or data URL
 }
 

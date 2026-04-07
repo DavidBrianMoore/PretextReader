@@ -195,6 +195,11 @@ function renderRuns(runs: TextRun[], container: HTMLElement, annotations: Annota
             mark.setAttribute('data-note', anno.note);
             mark.classList.add('anno-note');
         }
+
+        if (anno.citation) {
+            mark.setAttribute('data-citation', anno.citation);
+            if (!anno.note) mark.setAttribute('title', `Citation: ${anno.citation}`);
+        }
         
         const annoText = runText.substring(intersectStart - blockOffset, intersectEnd - blockOffset);
         mark.appendChild(createRunNode({ ...run, text: annoText }));

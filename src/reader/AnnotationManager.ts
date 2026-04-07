@@ -1,4 +1,6 @@
 import type { Annotation } from '../db/LibraryStore';
+import type { BookMetadata } from '../epub/types';
+import { CitationHelper } from '../utils/CitationHelper';
 
 interface AnnotationCallbacks {
   onAdd: (anno: Omit<Annotation, 'id' | 'createdAt'>) => void;
@@ -8,11 +10,13 @@ interface AnnotationCallbacks {
 export class AnnotationManager {
   private container: HTMLElement;
   private callbacks: AnnotationCallbacks;
+  private metadata: BookMetadata;
   private popover: HTMLElement;
   private currentSelection: { blockId: string; text: string; startOffset: number; endOffset: number; existingId?: string } | null = null;
 
-  constructor(container: HTMLElement, callbacks: AnnotationCallbacks) {
+  constructor(container: HTMLElement, metadata: BookMetadata, callbacks: AnnotationCallbacks) {
     this.container = container;
+    this.metadata = metadata;
     this.callbacks = callbacks;
     this.popover = this._buildPopover();
     document.body.appendChild(this.popover);
@@ -33,6 +37,9 @@ export class AnnotationManager {
           <button class="anno-btn color-btn" data-color="#b3e5fc" title="Blue"><div class="swatch" style="background:#b3e5fc"></div></button>
         </div>
         <div class="anno-tools">
+          <button class="anno-btn cite-btn" id="anno-cite" title="Cite & Copy">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 2.5 1 5 6 6zM16 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2h-2c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 2.5 1 5 6 6z"/></svg>
+          </button>
           <button class="anno-btn note-trigger" data-type="note-trigger" title="Add Note">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           </button>
@@ -54,6 +61,12 @@ export class AnnotationManager {
         const color = (btn as HTMLElement).dataset.color || '#ffeb3b';
         this._handleAction('highlight', color);
       });
+    });
+
+    el.querySelector('.cite-btn')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this._handleCite();
     });
 
     el.querySelector('.note-trigger')?.addEventListener('click', (e) => {
@@ -198,7 +211,24 @@ export class AnnotationManager {
     this.popover.style.left = `${left}px`;
   }
 
-  private _handleAction(type: 'highlight' | 'note', color?: string): void {
+  private _handleCite(): void {
+    if (!this.currentSelection) return;
+    
+    const text = this.currentSelection.text;
+    const formatted = CitationHelper.formatForClipboard(text, this.metadata);
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(formatted).then(() => {
+        console.log('Citation copied to clipboard');
+    }).catch(err => {
+        console.error('Failed to copy citation:', err);
+    });
+
+    // Save as citation annotation
+    this._handleAction('citation');
+  }
+
+  private _handleAction(type: 'highlight' | 'note' | 'citation', color?: string): void {
     if (!this.currentSelection) return;
     
     const sel = this.currentSelection;
@@ -212,8 +242,10 @@ export class AnnotationManager {
         blockId: sel.blockId,
         type,
         text: sel.text,
-        color: color || (type === 'highlight' ? '#ffeb3b' : undefined),
+        color: color || (type === 'highlight' || type === 'citation' ? '#ffeb3b' : undefined),
         note: type === 'note' ? noteVal : undefined,
+        citation: type === 'citation' ? CitationHelper.generateCitation(this.metadata) : undefined,
+        bibliography: type === 'citation' ? CitationHelper.generateBibliographyEntry(this.metadata) : undefined,
         startOffset: sel.startOffset,
         endOffset: sel.endOffset
     });
