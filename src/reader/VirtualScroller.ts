@@ -156,12 +156,25 @@ export class VirtualScroller {
     const idx = this.entries.findIndex(e => e.block.id === blockId);
     if (idx >= 0) {
       const offset = useOffset ? (window.innerHeight / 3) : 0;
+      const targetTop = Math.max(0, this.entries[idx].top - offset);
+      
+      // Using 'auto' (instant) for search jumps is much more reliable on mobile
+      // and prevents the virtual scroller from "tripping" mid-scroll.
       window.scrollTo({
-        top: Math.max(0, this.entries[idx].top - offset),
-        behavior: 'smooth'
+        top: targetTop,
+        left: 0,
+        behavior: 'auto'
       });
-      this.scrollTop = window.scrollY;
+      
+      // Update our internal state immediately
+      this.scrollTop = targetTop;
       this._render();
+
+      // Force a slight layout reset to clear any "pinch to fix" margin glitches
+      requestAnimationFrame(() => {
+        this._measureColumnWidth();
+        this._render();
+      });
     }
     return idx;
   }

@@ -28,6 +28,7 @@ html, body {
   min-height: 100%;
   width: 100%;
   overflow-x: hidden;
+  position: relative;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);
