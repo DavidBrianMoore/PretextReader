@@ -11,6 +11,7 @@ import { SyncManager } from './Sync';
 import { ActionMenu } from '../ui/ActionMenu';
 import { NoteEditor } from '../ui/NoteEditor';
 import { ChatSidebar } from '../ui/ChatSidebar';
+import { BookSerializer } from './BookSerializer';
 
 export class ReaderView {
   private el: HTMLElement;
@@ -278,17 +279,15 @@ export class ReaderView {
       return;
     }
     
-    // Find block text
-    let text = '';
+    // Find block
     for (const chapter of this.book.chapters) {
       const block = chapter.blocks.find(b => b.id === this._activeBlockId);
       if (block) {
-        text = block.runs?.map(r => r.text).join('') || '';
+        const text = BookSerializer.serializeBlock(block, 'markdown');
+        this.chatSidebar.show(text);
         break;
       }
     }
-    
-    this.chatSidebar.show(text);
   }
 
   private async _toggleBookmark(): Promise<void> {
@@ -392,47 +391,8 @@ export class ReaderView {
   private async _shareText(): Promise<void> {
     if (!navigator.share) return alert('Share not supported.');
     try {
-      let fullText = '';
-      const seenLabels = new Set<string>();
-
-      for (let i = 0; i < this.book.chapters.length; i++) {
-        const ch = this.book.chapters[i];
-        const prevText = fullText.trim();
-        const chText = ch.blocks
-          .map(b => (b.runs || []).map(r => r.text).join('').trim())
-          .filter(t => t.length > 0)
-          .join('\n\n');
-
-        if (!chText) continue;
-
-        // Determine joining separator
-        let sep = '\n\n\n';
-        if (prevText) {
-            const endsWithPunct = /[.!?%”"’':;]$/.test(prevText);
-            const startsWithLower = /^[a-z]/.test(chText);
-            
-            // If previous chapter (page) ended mid-sentence, join with space instead of gap
-            if (!endsWithPunct || startsWithLower) {
-                sep = ' '; 
-            }
-        }
-
-        // Add chapter label only if it's not a generic "Page X" that breaks a sentence
-        // and it hasn't been seen recently in the same context
-        const labelTrim = ch.label.trim();
-        const isGenericPage = /^\[?PAGE[\s-]*\d+\]?$/i.test(labelTrim);
-        const shouldAddLabel = !isGenericPage || (fullText === '' || /[.!?%”"’':;]$/.test(prevText));
-
-        if (shouldAddLabel && !seenLabels.has(labelTrim.toUpperCase())) {
-            seenLabels.add(labelTrim.toUpperCase());
-            fullText += (fullText ? '\n\n\n' : '') + labelTrim.toUpperCase() + '\n\n';
-            fullText += chText;
-        } else {
-            fullText += sep + chText;
-        }
-      }
-
-      await navigator.share({ title: this.book.metadata.title, text: fullText.trim() });
+      const fullText = BookSerializer.serialize(this.book, 'text');
+      await navigator.share({ title: this.book.metadata.title, text: fullText });
     } catch (err) { }
   }
 
