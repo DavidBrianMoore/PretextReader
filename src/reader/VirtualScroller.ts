@@ -279,9 +279,8 @@ export class VirtualScroller {
     if (internalLink) {
       e.preventDefault();
       const href = internalLink.getAttribute('href');
-      if (href && href.includes('#')) {
-        const targetId = href.split('#')[1];
-        this.scrollToBlock(targetId);
+      if (href) {
+        this.container.dispatchEvent(new CustomEvent('internal-link', { detail: { href }, bubbles: true }));
       }
       return;
     }
