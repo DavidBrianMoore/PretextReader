@@ -99,6 +99,8 @@ export function renderBlock(
   }
 
   el.style.fontSize = `${settings.fontSize}px`;
+  el.style.paddingTop = `${block.type === 'heading' ? HEADING_GAP : block.type === 'code' ? CODE_PADDING : 0}px`;
+  el.style.paddingBottom = `${block.type === 'blockquote' ? PARAGRAPH_GAP + 8 : block.type === 'code' ? CODE_PADDING + PARAGRAPH_GAP : PARAGRAPH_GAP}px`;
   // Body font family applied via CSS var, but we can set it here too if needed
   
   const container = document.createElement('div');
