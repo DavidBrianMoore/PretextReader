@@ -393,6 +393,8 @@ export class ReaderView {
     if (!navigator.share) return alert('Share not supported.');
     try {
       let fullText = '';
+      const seenLabels = new Set<string>();
+
       for (let i = 0; i < this.book.chapters.length; i++) {
         const ch = this.book.chapters[i];
         const prevText = fullText.trim();
@@ -416,11 +418,14 @@ export class ReaderView {
         }
 
         // Add chapter label only if it's not a generic "Page X" that breaks a sentence
-        const isGenericPage = /^PAGE \d+$/i.test(ch.label.trim());
+        // and it hasn't been seen recently in the same context
+        const labelTrim = ch.label.trim();
+        const isGenericPage = /^\[?PAGE[\s-]*\d+\]?$/i.test(labelTrim);
         const shouldAddLabel = !isGenericPage || (fullText === '' || /[.!?%”"’':;]$/.test(prevText));
 
-        if (shouldAddLabel && !fullText.includes(ch.label.toUpperCase())) {
-            fullText += (fullText ? '\n\n\n' : '') + ch.label.toUpperCase() + '\n\n';
+        if (shouldAddLabel && !seenLabels.has(labelTrim.toUpperCase())) {
+            seenLabels.add(labelTrim.toUpperCase());
+            fullText += (fullText ? '\n\n\n' : '') + labelTrim.toUpperCase() + '\n\n';
             fullText += chText;
         } else {
             fullText += sep + chText;

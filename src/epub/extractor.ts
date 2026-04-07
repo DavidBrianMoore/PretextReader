@@ -283,7 +283,16 @@ export function mergeCompatibleBlocks(blocks: ContentBlock[]): ContentBlock[] {
     // Merge if it doesn't end a sentence OR if it starts with lower case (continuation)
     // OR if it's very short (less than 3 characters - likely a fragment)
     if (!endsSentence || !startsWithCapital || nextText.length < 3) {
-      current.runs = [...(current.runs || []), ...(next.runs || [])];
+      // Ensure a space exists between the blocks being merged
+      const currentRuns = current.runs || [];
+      const nextRuns = next.runs || [];
+
+      const lastRun = currentRuns[currentRuns.length - 1];
+      if (lastRun && !lastRun.text.endsWith(' ') && (nextRuns.length > 0 && !nextRuns[0].text.startsWith(' '))) {
+          lastRun.text += ' ';
+      }
+
+      current.runs = [...currentRuns, ...nextRuns];
       // Re-run the run-merging to ensure it's clean (hyphens handles here)
       current.runs = mergeAdjacentRuns(current.runs);
     } else {
