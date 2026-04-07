@@ -137,6 +137,25 @@ export class ReaderView {
     window.addEventListener('scroll', this._onWindowScroll, { passive: true });
 
     document.addEventListener('keydown', this._onKeyDown);
+    
+    this.el.addEventListener('internal-link', (e: Event) => {
+      const href = (e as CustomEvent).detail.href as string;
+      
+      if (href.includes('#')) {
+         const targetId = href.split('#')[1];
+         if (this.allBlocks.some(b => b.id === targetId)) {
+             this.scroller.scrollToBlock(targetId);
+             return;
+         }
+      }
+      
+      const normalizedHref = href.split('#')[0].replace(/^\.?\//, '');
+      const chapterIndex = this.book.chapters.findIndex(ch => ch.href.endsWith(normalizedHref) || normalizedHref.endsWith(ch.href));
+      
+      if (chapterIndex >= 0) {
+         this._navigateToChapter(chapterIndex);
+      }
+    });
   }
 
   private _onKeyDown = (e: KeyboardEvent): void => {
