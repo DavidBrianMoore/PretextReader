@@ -3,8 +3,8 @@ import type { Annotation } from '../db/LibraryStore';
 import type { ContentBlock, TextRun } from '../epub/types';
 import { type ReaderSettings, fontString, headingFontString } from './theme';
 
-const PARAGRAPH_GAP = 16;  // px between blocks
-const HEADING_GAP = 28;    // extra space before headings
+const PARAGRAPH_GAP = 28;  // px between blocks
+const HEADING_GAP = 40;    // extra space before headings
 const HR_HEIGHT = 32;
 const CODE_PADDING = 24;
 
