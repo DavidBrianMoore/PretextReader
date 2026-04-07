@@ -1,6 +1,6 @@
 import type { Book, Chapter, ContentBlock } from '../epub/types';
 
-export type ExportFormat = 'text' | 'markdown';
+export type ExportFormat = 'text' | 'markdown' | 'tts';
 
 export class BookSerializer {
   /**
@@ -36,7 +36,11 @@ export class BookSerializer {
 
         const labelTrim = ch.label.trim();
         const isGenericPage = /^\[?PAGE[\s-]*\d+\]?$/i.test(labelTrim);
-        const shouldAddLabel = !isGenericPage || (fullText === '' || /[.!?%”"’':;]$/.test(prevText));
+        
+        // In TTS mode, we NEVER add generic page labels
+        const shouldAddLabel = format === 'tts' 
+          ? !isGenericPage 
+          : (!isGenericPage || (fullText === '' || /[.!?%”"’':;]$/.test(prevText)));
 
         if (shouldAddLabel && !seenLabels.has(labelTrim.toUpperCase())) {
           seenLabels.add(labelTrim.toUpperCase());
@@ -91,6 +95,7 @@ export class BookSerializer {
         return format === 'markdown' ? `\`\`\`\n${text}\n\`\`\`` : `\n${text}\n`;
 
       case 'hr':
+        if (format === 'tts') return ''; // No HRs in TTS
         return format === 'markdown' ? '---' : '────────────────────────────────';
 
       default:

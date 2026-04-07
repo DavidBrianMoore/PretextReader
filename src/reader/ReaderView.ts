@@ -94,6 +94,7 @@ export class ReaderView {
       onFontSizeChange: (d) => this._changeFontSize(d),
       onShare: () => this._share(),
       onShareText: () => this._shareText(),
+      onShareTTS: () => this._shareTTS(),
       onSearch: () => this.search.toggle(),
       onClose: () => this._close(),
     }, this.settings);
@@ -410,6 +411,32 @@ export class ReaderView {
       const fullText = BookSerializer.serialize(this.book, 'text');
       await navigator.share({ title: this.book.metadata.title, text: fullText });
     } catch (err) { }
+  }
+
+  private async _shareTTS(): Promise<void> {
+    const ttsText = BookSerializer.serialize(this.book, 'tts');
+    
+    // 1. Copy to clipboard automatically (Speechify users love this)
+    try {
+        await navigator.clipboard.writeText(ttsText);
+        const toast = document.createElement('div');
+        toast.className = 'parse-error';
+        toast.style.backgroundColor = 'rgba(76, 175, 80, 0.9)';
+        toast.textContent = 'Text copied to clipboard!';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2500);
+    } catch (err) {
+        console.warn('Clipboard copy failed:', err);
+    }
+
+    // 2. Open Share Sheet
+    if (navigator.share) {
+        try {
+            await navigator.share({ title: this.book.metadata.title, text: ttsText });
+        } catch (err) { }
+    } else {
+        alert('Sharing not supported on this browser, but the clean text has been copied to your clipboard!');
+    }
   }
 
   private _close(): void {
