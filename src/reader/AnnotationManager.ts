@@ -40,6 +40,19 @@ export class AnnotationManager {
           <button class="anno-btn cite-btn" id="anno-cite" title="Cite & Copy">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 2.5 1 5 6 6zM16 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2h-2c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 2.5 1 5 6 6z"/></svg>
           </button>
+          <button class="anno-btn footnote-btn" title="Copy with Footnote">
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+               <polyline points="7 10 12 15 17 10"></polyline>
+               <line x1="12" y1="15" x2="12" y2="3"></line>
+             </svg>
+          </button>
+          <button class="anno-btn bib-btn" title="Build Zotero/BibTeX Entry">
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+               <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
+               <polyline points="17 2 12 7 7 2"></polyline>
+             </svg>
+          </button>
           <button class="anno-btn note-trigger" data-type="note-trigger" title="Add Note">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           </button>
@@ -67,6 +80,18 @@ export class AnnotationManager {
       e.preventDefault();
       e.stopPropagation();
       this._handleCite();
+    });
+
+    el.querySelector('.footnote-btn')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this._handleFootnote();
+    });
+
+    el.querySelector('.bib-btn')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this._handleBibTeX();
     });
 
     el.querySelector('.note-trigger')?.addEventListener('click', (e) => {
@@ -217,15 +242,56 @@ export class AnnotationManager {
     const text = this.currentSelection.text;
     const formatted = CitationHelper.formatForClipboard(text, this.metadata);
     
-    // Copy to clipboard
     navigator.clipboard.writeText(formatted).then(() => {
-        console.log('Citation copied to clipboard');
+        this._showToast('Citation copied');
     }).catch(err => {
         console.error('Failed to copy citation:', err);
     });
 
-    // Save as citation annotation
     this._handleAction('citation');
+  }
+
+  private _handleFootnote(): void {
+    if (!this.currentSelection) return;
+    
+    const text = this.currentSelection.text;
+    const footnote = CitationHelper.generateFootnote(text, this.metadata);
+    
+    navigator.clipboard.writeText(footnote).then(() => {
+        this._showToast('Copied with Footnote');
+    }).catch(err => {
+        console.error('Failed to copy footnote:', err);
+    });
+
+    // Automatically trigger bibliography tracking as requested
+    this._handleAction('citation');
+  }
+
+  private _handleBibTeX(): void {
+    if (!this.currentSelection) return;
+    
+    const text = this.currentSelection.text;
+    const bibtex = CitationHelper.generateBibTeX(this.metadata, text);
+    
+    navigator.clipboard.writeText(bibtex).then(() => {
+        this._showToast('Zotero Entry (BibTeX) Copied');
+    }).catch(err => {
+        console.error('Failed to copy BibTeX:', err);
+    });
+
+    // Also track it in the library
+    this._handleAction('citation');
+  }
+
+  private _showToast(msg: string): void {
+    const existing = document.querySelector('.anno-toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.className = 'anno-toast';
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2500);
   }
 
   private _handleAction(type: 'highlight' | 'note' | 'citation', color?: string): void {
