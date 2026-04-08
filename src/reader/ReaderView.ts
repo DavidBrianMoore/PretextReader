@@ -6,7 +6,11 @@ import { Toolbar } from '../ui/Toolbar';
 import { TableOfContents } from '../ui/TableOfContents';
 import { SearchView } from '../ui/SearchView';
 import { AnnotationManager } from './AnnotationManager';
-import { libraryStore, type Annotation } from '../db/LibraryStore';
+import { libraryStore } from '../db/LibraryStore';
+import type { Annotation } from '../epub/types';
+
+
+
 import { SyncManager } from './Sync';
 import { ActionMenu } from '../ui/ActionMenu';
 import { NoteEditor } from '../ui/NoteEditor';
@@ -443,8 +447,9 @@ export class ReaderView {
 
   private _showBibliography(): void {
     if (!this.bookId) return;
-    new BibliographyModal(this.bookId, this.book.metadata);
+    new BibliographyModal(this.bookId);
   }
+
 
   private _close(): void {
     this.destroy();

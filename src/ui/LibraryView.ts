@@ -1,5 +1,7 @@
 import { libraryStore } from '../db/LibraryStore';
-import type { SavedBook } from '../db/LibraryStore';
+import type { SavedBook } from '../epub/types';
+
+
 import { EditBookModal } from './EditBookModal';
 import { CitationHelper } from '../utils/CitationHelper';
 

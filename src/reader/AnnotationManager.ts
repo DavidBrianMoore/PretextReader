@@ -1,6 +1,8 @@
-import type { Annotation } from '../db/LibraryStore';
-import type { BookMetadata } from '../epub/types';
+import type { Annotation, BookMetadata } from '../epub/types';
+
+import { zoteroEngine } from '../utils/ZoteroEngine';
 import { CitationHelper } from '../utils/CitationHelper';
+
 
 interface AnnotationCallbacks {
   onAdd: (anno: Omit<Annotation, 'id' | 'createdAt'>) => void;
@@ -236,11 +238,11 @@ export class AnnotationManager {
     this.popover.style.left = `${left}px`;
   }
 
-  private _handleCite(): void {
+  private async _handleCite(): Promise<void> {
     if (!this.currentSelection) return;
     
     const text = this.currentSelection.text;
-    const formatted = CitationHelper.formatForClipboard(text, this.metadata);
+    const formatted = await zoteroEngine.formatSnippet(this.metadata, text);
     
     navigator.clipboard.writeText(formatted).then(() => {
         this._showToast('Citation copied');
@@ -251,13 +253,15 @@ export class AnnotationManager {
     this._handleAction('citation');
   }
 
-  private _handleFootnote(): void {
+  private async _handleFootnote(): Promise<void> {
     if (!this.currentSelection) return;
     
     const text = this.currentSelection.text;
-    const footnote = CitationHelper.generateFootnote(text, this.metadata);
+    const formatted = await zoteroEngine.formatSnippet(this.metadata, text);
+    // Note: citeproc handles footnote styles if the CSL is a note-based style.
+    // For now we use the formatted snippet as a placeholder for professional footnotes.
     
-    navigator.clipboard.writeText(footnote).then(() => {
+    navigator.clipboard.writeText(formatted).then(() => {
         this._showToast('Copied with Footnote');
     }).catch(err => {
         console.error('Failed to copy footnote:', err);
@@ -266,6 +270,7 @@ export class AnnotationManager {
     // Automatically trigger bibliography tracking as requested
     this._handleAction('citation');
   }
+
 
   private _handleBibTeX(): void {
     if (!this.currentSelection) return;

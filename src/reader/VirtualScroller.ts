@@ -1,5 +1,6 @@
 import type { ContentBlock } from '../epub/types';
-import type { Annotation } from '../db/LibraryStore';
+import type { Annotation } from '../epub/types';
+
 import type { ReaderSettings } from './theme';
 import { predictBlockHeight, renderBlock, clearPreparedCache } from './ParagraphRenderer';
 

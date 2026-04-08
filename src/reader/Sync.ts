@@ -23,7 +23,8 @@ import {
   deleteObject 
 } from 'firebase/storage';
 import { auth, db, storage } from '../firebase';
-import { libraryStore, type SavedBook } from '../db/LibraryStore';
+import { libraryStore } from '../db/LibraryStore';
+import type { SavedBook } from '../epub/types';
 
 export type SyncStatus = 'offline' | 'signing-in' | 'synced' | 'unsynced' | 'error';
 

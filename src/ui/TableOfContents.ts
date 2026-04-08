@@ -1,4 +1,5 @@
-import type { Annotation } from '../db/LibraryStore';
+import type { Annotation } from '../epub/types';
+
 import type { TocEntry } from '../epub/types';
 
 export interface TableOfContentsCallbacks {

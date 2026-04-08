@@ -3,37 +3,7 @@
  * Backed by IndexedDB for high-capacity storage (blobs + JSON).
  */
 
-import type { Book } from '../epub/types';
-
-export interface Annotation {
-  id: string;
-  blockId: string;
-  type: 'highlight' | 'note' | 'citation';
-  color?: string; // e.g. #ffeb3b
-  text: string;  // selected text
-  note?: string; // for type: 'note'
-  citation?: string; // formatted footnote/citation
-  bibliography?: string; // formatted bibliography entry
-  startOffset?: number; // relative to block's plain text
-  endOffset?: number;
-  createdAt: number;
-}
-
-export interface SavedBook {
-  id: string;
-  metadata: Book['metadata'];
-  coverBlob?: Blob;
-  chapters: Book['chapters'];
-  toc: Book['toc'];
-  annotations?: Annotation[];
-  lastReadBlockId?: string;
-  lastReadTop?: number;
-  lastReadAt?: number;
-  // If we want to support original file re-parsing:
-  sourceBlob?: Blob;
-  sourceType?: string;
-  sourceName?: string;
-}
+import type { Book, Annotation, SavedBook } from '../epub/types';
 
 const DB_NAME = 'pretext_reader_v1';
 const STORE_BOOKS = 'books';

@@ -1,4 +1,5 @@
-import type { SavedBook } from '../db/LibraryStore';
+import type { SavedBook } from '../epub/types';
+
 import { libraryStore } from '../db/LibraryStore';
 
 interface EditCallbacks {

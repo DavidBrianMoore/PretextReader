@@ -1,22 +1,28 @@
 import { libraryStore } from '../db/LibraryStore';
-import type { Annotation } from '../db/LibraryStore';
-import type { BookMetadata } from '../epub/types';
+import type { SavedBook } from '../epub/types';
+
+import { zoteroEngine, SUPPORTED_STYLES } from '../utils/ZoteroEngine';
 import { CitationHelper } from '../utils/CitationHelper';
 
 export class BibliographyModal {
   private el: HTMLElement;
   private bookId: string;
-  private metadata: BookMetadata;
+  private book: SavedBook | null = null;
+  private currentStyle: string = 'apa';
 
-  constructor(bookId: string, metadata: BookMetadata) {
+  constructor(bookId: string) {
     this.bookId = bookId;
-    this.metadata = metadata;
     this.el = document.createElement('div');
     this.el.className = 'modal-overlay';
     this.el.innerHTML = `
       <div class="modal-content bibliography-modal">
         <div class="modal-header">
-          <h2>Bibliography</h2>
+          <div class="header-main">
+            <h2>Bibliography</h2>
+            <select class="style-selector" id="style-select">
+              ${SUPPORTED_STYLES.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+            </select>
+          </div>
           <button class="modal-close">&times;</button>
         </div>
         <div class="bibliography-list" id="bib-list">
@@ -39,22 +45,22 @@ export class BibliographyModal {
       if (e.target === this.el) this.destroy();
     });
 
-    const book = await libraryStore.getBook(this.bookId);
-    if (!book || !book.annotations) {
+    const styleSelect = this.el.querySelector('#style-select') as HTMLSelectElement;
+    styleSelect.addEventListener('change', () => {
+      this.currentStyle = styleSelect.value;
+      if (this.book) this._render();
+    });
+
+    this.book = await libraryStore.getBook(this.bookId) || null;
+    if (!this.book || !this.book.annotations) {
       this._renderEmpty();
       return;
     }
 
-    const citations = book.annotations.filter(a => a.type === 'citation');
-    if (citations.length === 0) {
-      this._renderEmpty();
-      return;
-    }
-
-    this._renderCitations(citations);
+    this._render();
     
-    this.el.querySelector('#copy-bib')?.addEventListener('click', () => this._copyBibliography(citations));
-    this.el.querySelector('#export-bibtex')?.addEventListener('click', () => this._exportBibTeX(citations));
+    this.el.querySelector('#copy-bib')?.addEventListener('click', () => this._copyBibliography());
+    this.el.querySelector('#export-bibtex')?.addEventListener('click', () => this._exportBibTeX());
   }
 
   private _renderEmpty() {
@@ -64,74 +70,91 @@ export class BibliographyModal {
     (this.el.querySelector('#export-bibtex') as HTMLButtonElement).disabled = true;
   }
 
-  private _renderCitations(citations: Annotation[]) {
+  private async _render() {
+    if (!this.book) return;
     const list = this.el.querySelector('#bib-list')!;
-    list.innerHTML = '';
-    
-    // De-duplicate bibliography entries (usually they are all the same for one book, but might differ if we support multi-edition?)
-    // Actually, for one book they are likely identical.
-    const entry = CitationHelper.generateBibliographyEntry(this.metadata);
-    
-    const div = document.createElement('div');
-    div.className = 'bibliography-entry';
-    div.innerHTML = entry;
-    
-    // Add COinS for Zotero browser connector
-    const coins = document.createElement('span');
-    coins.className = 'Z3988';
-    coins.title = this._generateCOinS();
-    div.appendChild(coins);
+    list.innerHTML = '<div class="loading">Formatting...</div>';
 
-    list.appendChild(div);
+    try {
+      const { bibliography, citations } = await zoteroEngine.formatBibliography(this.book, this.currentStyle);
+      
+      list.innerHTML = '';
+      
+      const bibDiv = document.createElement('div');
+      bibDiv.className = 'bibliography-entry';
+      bibDiv.innerHTML = bibliography;
+      
+      // Add COinS for Zotero browser connector
+      const coins = document.createElement('span');
+      coins.className = 'Z3988';
+      coins.title = this._generateCOinS();
+      bibDiv.appendChild(coins);
 
-    const subheader = document.createElement('h3');
-    subheader.textContent = 'Individual Citations';
-    subheader.style.marginTop = '20px';
-    list.appendChild(subheader);
+      list.appendChild(bibDiv);
 
-    citations.forEach(anno => {
-      const item = document.createElement('div');
-      item.className = 'citation-item';
-      item.innerHTML = `
-        <div class="citation-text">"${anno.text}"</div>
-        <div class="citation-ref">${anno.citation}</div>
-      `;
-      list.appendChild(item);
-    });
+      const citationsList = (this.book.annotations || []).filter(a => a.type === 'citation');
+      if (citationsList.length > 0) {
+        const subheader = document.createElement('h3');
+        subheader.textContent = 'Individual Citations';
+        subheader.style.marginTop = '20px';
+        list.appendChild(subheader);
+
+        citationsList.forEach((anno, i) => {
+          const item = document.createElement('div');
+          item.className = 'citation-item';
+          item.innerHTML = `
+            <div class="citation-text">"${anno.text}"</div>
+            <div class="citation-ref">${citations[i] || ''}</div>
+          `;
+          list.appendChild(item);
+        });
+      }
+    } catch (err) {
+      list.innerHTML = `<div class="error">Failed to generate bibliography: ${err}</div>`;
+    }
   }
 
-  private _copyBibliography(citations: Annotation[]) {
-    const entry = CitationHelper.generateBibliographyEntry(this.metadata);
-    const content = `BIBLIOGRAPHY\n\n${entry}\n\nCITATIONS\n\n` + 
-      citations.map(a => `"${a.text}"\n— ${a.citation}`).join('\n\n');
+  private async _copyBibliography() {
+    if (!this.book) return;
+    const { bibliography, citations } = await zoteroEngine.formatBibliography(this.book, this.currentStyle);
+    
+    // Simple HTML to Text conversion for clipboard
+    const temp = document.createElement('div');
+    temp.innerHTML = bibliography;
+    const bibText = temp.textContent || '';
+
+    const content = `BIBLIOGRAPHY (${this.currentStyle.toUpperCase()})\n\n${bibText}\n\nCITATIONS\n\n` + 
+      (this.book.annotations || []).filter(a => a.type === 'citation').map((a, i) => `"${a.text}"\n— ${citations[i]}`).join('\n\n');
     
     navigator.clipboard.writeText(content).then(() => {
       alert('Bibliography copied to clipboard');
     });
   }
 
-  private _exportBibTeX(citations: Annotation[]) {
-    // Generate a single BibTeX entry for the book, and optionally include notes for each citation
-    let bibtex = CitationHelper.generateBibTeX(this.metadata);
+  private _exportBibTeX() {
+    if (!this.book) return;
+    const citations = (this.book.annotations || []).filter(a => a.type === 'citation');
     
-    // If we want to export multiple entries (one per citation), we could, but usually one book = one entry.
-    // Zotero likes one entry per book. We'll append the citations as notes.
+    // Generate a single BibTeX entry for the book
+    let bibtex = CitationHelper.generateBibTeX(this.book.metadata);
+    
     if (citations.length > 0) {
       const notes = citations.map(a => a.text).join('\n\n');
-      bibtex = CitationHelper.generateBibTeX(this.metadata, notes);
+      bibtex = CitationHelper.generateBibTeX(this.book.metadata, notes);
     }
 
     const blob = new Blob([bibtex], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${this.metadata.title.replace(/\s+/g, '_')}.bib`;
+    a.download = `${this.book.metadata.title.replace(/\s+/g, '_')}.bib`;
     a.click();
     URL.revokeObjectURL(url);
   }
 
   private _generateCOinS(): string {
-    const { title, author, publisher, date, isbn } = this.metadata;
+    if (!this.book) return '';
+    const { title, author, publisher, date, isbn } = this.book.metadata;
     const params = new URLSearchParams({
       ctx_ver: 'Z39.88-2004',
       rft_val_fmt: 'info:ofi/fmt:kev:mtx:book',
@@ -148,3 +171,4 @@ export class BibliographyModal {
     this.el.remove();
   }
 }
+

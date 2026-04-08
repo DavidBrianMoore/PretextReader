@@ -1,5 +1,6 @@
 import { prepare, layout } from '@chenglou/pretext';
-import type { Annotation } from '../db/LibraryStore';
+import type { Annotation } from '../epub/types';
+
 import type { ContentBlock, TextRun } from '../epub/types';
 import { type ReaderSettings, fontString, headingFontString } from './theme';
 
