@@ -118,9 +118,18 @@ export class BrowseView {
 
   private _renderResults(results: GutendexResult[]): void {
     if (results.length === 0) {
-      this.resultsEl.innerHTML = `<div class="browse-empty">No books found for "${this.searchInput.value}".</div>`;
+      this.resultsEl.innerHTML = `
+        <div class="browse-empty">
+          <div class="browse-empty-icon">🔍</div>
+          <p>No books found for "<strong>${this.searchInput.value}</strong>".</p>
+          <div class="search-tip" style="margin-top: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 8px; font-size: 0.9rem; opacity: 0.9; max-width: 400px; margin-left: auto; margin-right: auto; text-align: left;">
+            <strong>Pro Tip:</strong> Project Gutenberg only hosts public domain classics. Modern works (like George Orwell's <em>Animal Farm</em>) are often still under copyright and must be uploaded manually to your Library.
+          </div>
+        </div>
+      `;
       return;
     }
+
 
     this.resultsEl.innerHTML = `<div class="browse-grid"></div>`;
     const grid = this.resultsEl.querySelector('.browse-grid')!;
