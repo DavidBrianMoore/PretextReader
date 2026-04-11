@@ -60,9 +60,9 @@ function mergeAdjacentRuns(runs: TextRun[]): TextRun[] {
   // Final pass to clean up artifacts like layout hyphens (e.g. "sur- fice" or "sur-fice")
   // and ensure spacing between runs isn't doubled
   for (const run of merged) {
-    // 1. Join split words: "hyphen- space lowercase" OR "hyphen lowercase" at end of run -> "joined-lowercase"
-    // e.g. "com- pounded" -> "compounded", "sur-fice" -> "suffice"
-    run.text = run.text.replace(/([a-zA-Z])-?\s*([a-z])/g, '$1$2');
+    // 1. Join split words: "hyphen- space lowercase" Indicates a line-break split word
+    // e.g. "com- pounded" -> "compounded"
+    run.text = run.text.replace(/([a-zA-Z])-\s+([a-z])/g, '$1$2');
     
     // 2. Collapse any remaining double spaces that might have formed at run boundaries
     run.text = run.text.replace(/  +/g, ' ');
